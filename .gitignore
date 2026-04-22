@@ -1,0 +1,21 @@
+# Skill-local runtime state (contains active_account_id, challenge clock, ...)
+state.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Environment / secrets (should not be in skill repo, listed defensively)
+.env
+.env.*
