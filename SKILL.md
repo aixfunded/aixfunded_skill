@@ -165,11 +165,15 @@ See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 - **Leverage caps**: Challenge 10X / Payout 20X.
 - **Forbidden**: multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.
 - **Standard mode thresholds**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, 10-day evaluation period.
-- **AI reasoning score (agent-mode challenges)**: every order must carry a
-  fresh, order-specific `--reasoning` string (<= 1000 chars). The platform
-  LLM-grades sampled reasoning; starting score 60, LLM adds ±40, must stay
-  >= 60 or the challenge is failed. Templated/duplicate text is penalised
-  −5 to −20 per instance. See `references/risk-rules.md` for examples.
+- **AI reasoning score (REQUIRED for agent-mode accounts)**: every order
+  must carry a fresh, order-specific `--reasoning` string. The server
+  **requires** this field on agent-mode accounts — missing or empty triggers
+  `INVALID_ARGUMENT`. Length limit is **4096 bytes UTF-8**; over-limit is
+  also rejected by the server. `place_order.py` validates both client-side
+  and dies early if missing or too long. The platform LLM-grades sampled
+  reasoning; baseline 60, LLM adds ±40, must stay >= 60 or the challenge
+  fails. Templated/duplicate text is penalised −5 to −20 per instance.
+  See `references/risk-rules.md` for examples.
 
 Example good call:
 ```bash

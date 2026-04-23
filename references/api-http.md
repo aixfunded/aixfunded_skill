@@ -76,12 +76,14 @@ Required vs optional:
 - Required: `exchange_account_id`, `client_order_id` (idempotent), `symbol`, `side` (BUY|SELL), `order_type` (LIMIT|MARKET|STOP_LIMIT|STOP_MARKET|TAKE_PROFIT_LIMIT|TAKE_PROFIT_MARKET).
 - Often required: `size`, `price` (LIMIT must have price).
 - Optional: `time_in_force` (GTC|FOK|IOC|POST_ONLY), `reduce_only`, `trigger_price`, `trigger_type` (ORACLE|INDEX|MARKET|MARK).
-- Optional (agent-mode challenges): `reasoning` — plain string, the agent's
-  rationale for this order. Max 1000 chars, longer values are truncated
-  server-side. A sampled subset is LLM-graded; an average score < 60 fails
+- **Required for agent-mode accounts**: `reasoning` — plain string, the
+  agent's rationale for this order. Max **4096 bytes** (UTF-8). Missing on
+  an agent-mode account or over-limit returns `INVALID_ARGUMENT`. Manual
+  accounts reject API-placed orders entirely (must go through the AiXFund
+  front-end). A sampled subset is LLM-graded; an average score < 60 fails
   the challenge (see "AI reasoning score" below).
 
-### AI reasoning score (agent-mode challenges)
+### AI reasoning score (agent-mode accounts)
 
 The platform samples and grades `reasoning` via LLM. Every challenge starts
 at 60 points; LLM judgement adds ±40. Score < 60 fails the challenge
@@ -99,13 +101,15 @@ Low-quality (will be penalised):
 ```json
 {"reasoning": "continue buy"}   // templated, repeated across orders
 {"reasoning": "ok"}              // no substance
-// (field omitted)               // nothing to grade
 ```
+Missing `reasoning` on an agent-mode account is rejected outright by the
+server with `INVALID_ARGUMENT` (not just a score penalty).
 
 Guidance:
-- Include `reasoning` on every agent-placed order.
+- Always pass `reasoning` on agent-mode accounts — it's required.
 - Reference the actual setup: indicators / price levels / position sizing / contingency plan.
 - Never reuse the same text across orders; make each rationale order-specific.
+- Keep under 4096 bytes UTF-8 (Chinese counts ~3 bytes per character).
 
 Response:
 ```json

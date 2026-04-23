@@ -11,12 +11,14 @@ Two ways to set TP/SL:
 Use `query.py condition-orders` to list pending TP/SL (they do NOT show under
 open-orders).
 
-AI reasoning (agent-mode challenges):
-  Pass --reasoning "<markdown-like text>" to attach the agent's rationale for
-  this order. The server samples reasoning and grades it via LLM; an average
-  score < 60 marks the agent invalid and fails the challenge. Max 1000 chars
-  (truncated server-side). Skipping it on an agent-run challenge risks missing
-  the bar; templated / repeated text is penalised -5~20 per instance.
+AI reasoning (required for agent-mode accounts):
+  Pass --reasoning "<text>" with the agent's rationale for this order. The
+  server REQUIRES this field on agent-mode accounts — omitting it returns
+  INVALID_ARGUMENT. Max 4096 bytes (UTF-8), over-limit is rejected by the
+  server (also enforced client-side, no silent truncation).
+
+  Sampled reasoning is LLM-graded; baseline 60, LLM adds +/-40, must stay
+  >= 60 to pass. Templated / repeated text is penalised -5 to -20 each.
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ import uuid
 from datetime import datetime, timezone
 
 from _common import (
+    die,
     http_request,
     load_config,
     load_state,
@@ -33,6 +36,10 @@ from _common import (
     save_state,
     server_utc_ts_from_headers,
 )
+
+# Server contract: reasoning is required on agent-mode accounts and
+# capped at 4096 bytes (UTF-8). Over-limit returns INVALID_ARGUMENT.
+REASONING_MAX_BYTES = 4096
 
 
 def main() -> None:
@@ -56,15 +63,28 @@ def main() -> None:
                    choices=["ORACLE", "INDEX", "MARKET", "MARK"],
                    help="Trigger reference for attached TP/SL (default MARK)")
     p.add_argument("--reasoning", default="",
-                   help="Agent's rationale for this order (max 1000 chars, truncated "
-                        "server-side). LLM-graded; avg < 60 fails the challenge.")
+                   help="REQUIRED for agent-mode accounts: rationale for this order. "
+                        "Max 4096 bytes (UTF-8). Over-limit / missing returns "
+                        "INVALID_ARGUMENT from the server.")
     args = p.parse_args()
 
-    # Enforce the 1000-char ceiling client-side so we fail loud before the
-    # server silently truncates.
+    # Enforce the server's contract client-side: required and <= 4096 bytes UTF-8.
+    # Failing fast with a clear message is better than letting the server say
+    # INVALID_ARGUMENT with no hint about what went wrong.
     reasoning_text = (args.reasoning or "").strip()
-    if len(reasoning_text) > 1000:
-        reasoning_text = reasoning_text[:1000]
+    if not reasoning_text:
+        die(
+            "--reasoning is required for agent-mode accounts. Pass a fresh, "
+            "order-specific rationale (what you're trading, why, how big, and "
+            "where you'll exit). See SKILL.md / references/risk-rules.md for "
+            "the scoring rules."
+        )
+    reasoning_bytes = len(reasoning_text.encode("utf-8"))
+    if reasoning_bytes > REASONING_MAX_BYTES:
+        die(
+            f"--reasoning is {reasoning_bytes} bytes (UTF-8); limit is "
+            f"{REASONING_MAX_BYTES}. Shorten it and retry."
+        )
 
     cfg = load_config()
 

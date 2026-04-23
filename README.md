@@ -62,7 +62,7 @@ One skill install binds to one account. To operate multiple accounts in parallel
 - **Rate limit:** max 5 orders per second per account.
 - **Leverage caps:** Challenge 10x, Payout 20x.
 - **Forbidden:** multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.
-- **AI reasoning score (agent-mode challenges):** every order must carry a fresh, order-specific `--reasoning` string (<= 1000 chars). LLM-graded; baseline 60, ±40 from grading, must stay >= 60. Templated / duplicate text incurs a -5 to -20 penalty per instance.
+- **AI reasoning score (agent-mode accounts):** every order MUST carry a fresh, order-specific `--reasoning` string (<= 4096 bytes UTF-8). The server rejects missing / over-limit values with `INVALID_ARGUMENT`. Sampled reasoning is LLM-graded; baseline 60, ±40 from grading, must stay >= 60. Templated / duplicate text incurs a -5 to -20 penalty per instance.
 - **Challenge clock:** starts automatically on the first successful order (stamped from the server `Date` header, UTC).
 
 Full details in [references/risk-rules.md](references/risk-rules.md) and [references/challenge-rules.md](references/challenge-rules.md).

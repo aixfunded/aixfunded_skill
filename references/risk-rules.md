@@ -25,11 +25,14 @@
 | Max leverage in Challenge stage | 10X | aixfunded.com/plans |
 | Max leverage in Payout stage | 20X | aixfunded.com/plans |
 
-## AI reasoning score (agent-mode challenges)
+## AI reasoning score (agent-mode accounts)
 
-The platform grades agent performance via a dedicated "AI reasoning score"
-that is independent of PnL. Failing this score fails the challenge even if
-PnL targets are met.
+`reasoning` is a **required** field on every order placed against an
+agent-mode account. The server rejects a missing or over-limit `reasoning`
+with `INVALID_ARGUMENT` (it is not merely a score penalty). In addition,
+the platform grades agent performance via an "AI reasoning score" that is
+independent of PnL — failing this score fails the challenge even if PnL
+targets are met.
 
 | Item | Value | Notes |
 | --- | --- | --- |
@@ -40,13 +43,14 @@ PnL targets are met.
 
 Implications for the agent:
 
-- **Always pass `--reasoning`** to `place_order.py` on agent-mode challenges.
-  Skipping it = nothing to grade = nothing to offset penalties if they land.
+- **Always pass `--reasoning`** to `place_order.py` on agent-mode accounts.
+  The server rejects orders without it (`INVALID_ARGUMENT`).
 - **Write order-specific rationale.** Reference the actual setup: indicators
   checked, price levels, sizing logic, and contingency (stop / exit plan).
 - **Never reuse text across orders.** Even minor edits beat copy-paste.
-- **Keep under 1000 chars.** Longer values are silently truncated server-side;
-  the client also truncates for safety.
+- **Stay within 4096 bytes (UTF-8).** Chinese characters count ~3 bytes each.
+  Over-limit returns `INVALID_ARGUMENT`; the client also validates and dies
+  early with a byte count.
 - **Prefer substance over length.** "Continue buy" / "ok" / empty strings are
   high-risk triggers for the duplicate penalty.
 
