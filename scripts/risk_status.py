@@ -71,15 +71,21 @@ def main() -> None:
                             query={"exchange_account_id": cfg["exchange_account_id"]}, cfg=cfg)
     balances = bal_resp.get("data", {}).get("balances", [])
     bal = balances[0] if balances else {}
-    current_balance = float(bal.get("total_equity_value", 0))
-    initial_balance = cfg.get("initial_balance") or current_balance
+    # total_equity_value already includes unrealized_pnl per the exchange's
+    # balance contract (wallet_balance + unrealized_pnl). Use it as the PnL
+    # basis; expose the components separately so agents can see the breakdown.
+    total_equity = float(bal.get("total_equity_value", 0))
+    wallet_balance = float(bal.get("wallet_balance", 0))
+    unrealized_pnl = float(bal.get("unrealized_pnl", 0))
+    realized_pnl = float(bal.get("realized_pnl", 0))
+    initial_balance = cfg.get("initial_balance") or total_equity
 
     pos_resp = http_request("GET", "/positions",
                             query={"exchange_account_id": cfg["exchange_account_id"]}, cfg=cfg)
     positions = pos_resp.get("data", {}).get("positions", [])
     open_pos_count = len(positions)
 
-    pnl_pct = ((current_balance - initial_balance) / initial_balance * 100) if initial_balance else 0
+    pnl_pct = ((total_equity - initial_balance) / initial_balance * 100) if initial_balance else 0
     loss_pct = max(0, -pnl_pct)
 
     # Challenge period is stamped by place_order.py at the first successful
@@ -111,7 +117,10 @@ def main() -> None:
         "exchange_account_id": cfg["exchange_account_id"],
         "mode": mode,
         "initial_balance": initial_balance,
-        "current_balance": current_balance,
+        "total_equity_value": total_equity,
+        "wallet_balance": wallet_balance,
+        "unrealized_pnl": unrealized_pnl,
+        "realized_pnl": realized_pnl,
         "current_pnl_pct": round(pnl_pct, 2),
         "profit_target_pct": th.get("profit_target_pct"),
         "thresholds": {

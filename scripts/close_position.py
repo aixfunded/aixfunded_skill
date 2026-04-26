@@ -27,7 +27,7 @@ def fetch_positions(cfg, symbol: str | None) -> list[dict]:
     return [p for p in (positions or []) if float(p.get("quantity", 0) or 0) > 0]
 
 
-def close_one(cfg, pos: dict, force: bool) -> dict:
+def close_one(cfg, pos: dict, force: bool, reasoning: str) -> dict:
     side = "SELL" if pos["side"].upper() == "LONG" else "BUY"
     size = pos["quantity"]
     symbol = pos["symbol"]
@@ -62,6 +62,7 @@ def close_one(cfg, pos: dict, force: bool) -> dict:
         "tp_trigger_price_type": "",
         "sl_trigger_price": "",
         "sl_trigger_price_type": "",
+        "reasoning": reasoning,
     }
     resp = http_request("POST", "/createOrder", json_body=body, cfg=cfg)
     return {"symbol": symbol, "side": side, "size": size, "result": resp.get("data", resp)}
@@ -74,14 +75,23 @@ def main() -> None:
     g.add_argument("--all", action="store_true", help="Close every open position")
     p.add_argument("--force", action="store_true",
                    help="Skip the 1-minute minimum-hold guard (risk of violation)")
+    p.add_argument("--reasoning", required=True,
+                   help="REQUIRED: rationale for this close (agent-mode accounts). "
+                        "Max 4096 bytes (UTF-8). Make it order-specific.")
     args = p.parse_args()
+
+    reasoning_text = (args.reasoning or "").strip()
+    if not reasoning_text:
+        die("--reasoning is required for agent-mode accounts.")
+    if len(reasoning_text.encode("utf-8")) > 4096:
+        die("--reasoning exceeds 4096 bytes (UTF-8). Shorten it and retry.")
 
     cfg = load_config()
     positions = fetch_positions(cfg, None if args.all else args.symbol)
     if not positions:
         die("No open position to close." if args.symbol else "No open positions.")
 
-    results = [close_one(cfg, pos, args.force) for pos in positions]
+    results = [close_one(cfg, pos, args.force, reasoning_text) for pos in positions]
     print_json(results if len(results) > 1 else results[0])
 
 

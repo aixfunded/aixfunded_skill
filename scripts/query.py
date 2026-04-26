@@ -8,7 +8,7 @@ Subcommands:
   history-orders    [--symbol] [--page] [--limit]
   trades            [--symbol] [--page] [--limit]
   pnl-closed        [--symbol] [--start <unix-microsec>] [--end <unix-microsec>] [--page] [--limit]
-  leverage          --symbol
+  leverage          [--symbol]
 """
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def main() -> None:
     sp.add_argument("--page", type=int); sp.add_argument("--limit", type=int)
     sp.set_defaults(func=cmd_pnl_closed)
 
-    sp = sub.add_parser("leverage"); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_leverage)
+    sp = sub.add_parser("leverage"); sp.add_argument("--symbol"); sp.set_defaults(func=cmd_leverage)
 
     args = p.parse_args()
     cfg = load_config()
