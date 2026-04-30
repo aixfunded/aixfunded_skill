@@ -156,6 +156,16 @@ Two ways to set a stop-loss or take-profit:
 
 Prefer #1 when opening. Use #2 to add / adjust after entry.
 
+## Slippage tip (MARKET orders)
+
+Spread on this venue varies a lot by symbol. A MARKET order pays the
+spread on entry and again on exit, and leverage multiplies how that
+shows up in unrealized PnL.
+
+Before a MARKET order, especially on a less-liquid symbol, glance at
+`markets.py orderbook` and `markets.py contract` and mention the gap
+between the relevant top-of-book price and mark to the user.
+
 ## Critical rules (agent must internalize)
 
 See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
