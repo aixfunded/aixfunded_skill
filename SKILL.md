@@ -144,17 +144,54 @@ The propdesk API splits orders into two queues:
 
 - **Regular orders** (LIMIT, MARKET) → `query.py open-orders`.
 - **Conditional orders** (STOP_*, TAKE_PROFIT_*) → `query.py condition-orders`.
-  They sit in `UNTRIGGERED` state until the mark/index price hits the trigger.
+  They sit in `UNTRIGGERED` / `PENDING` state until the trigger price is hit.
 
 Two ways to set a stop-loss or take-profit:
 
 1. **Attach on entry** (`place_order.py --tp-price X --sl-price Y`) — one atomic
-   API call, the platform manages both legs as part of the position.
+   API call. The platform creates the entry order plus the TP and/or SL legs
+   together as an OCO pair (one triggers → the other auto-cancels).
 2. **Standalone trigger order** — a separate `STOP_MARKET` /
    `TAKE_PROFIT_MARKET` order with `--reduce-only`. Lives in the condition-order
    queue; cancel individually with `cancel_order.py --order-id <id>`.
 
 Prefer #1 when opening. Use #2 to add / adjust after entry.
+
+### Where to find attached TP/SL after submitting
+
+The same TP/SL pair shows up in different queries depending on the entry's
+lifecycle:
+
+- **Entry still resting** (LIMIT not yet filled): the entry sits in
+  `query.py open-orders`. Each entry row carries two extra arrays —
+  `take_profit[]` and `stop_loss[]` (always present, possibly empty) —
+  embedding the PENDING TP/SL legs with their own `order_id`s. Use those
+  ids directly with `cancel_order.py --order-id`.
+- **Entry filled** (position open): the entry leaves `open-orders`. The
+  TP/SL legs continue under `query.py condition-orders` in `UNTRIGGERED` /
+  `PENDING` state until they fire or get auto-cancelled by OCO/close.
+- **Triggered or cancelled legs**: only visible in `condition-orders` /
+  `history-orders`, never in the embedded arrays.
+
+### Cancelling LIMIT entries with attached TP/SL
+
+If you cancel a LIMIT entry that hasn't filled yet, the platform does **not**
+auto-cancel its TP/SL — they linger as orphan PENDING legs. After cancelling
+the entry, also cancel each `take_profit[].order_id` / `stop_loss[].order_id`
+explicitly. (This only matters for un-filled LIMIT entries; once the entry
+is FILLED, closing the position auto-cancels the legs.)
+
+### Attached-TP/SL field rules
+
+`is_open_tpsl_order=true` triggers the attach flow. Server requires:
+
+- at least one of `is_set_open_tp` / `is_set_open_sl` to be `true`,
+- whichever leg is enabled to have `*_trigger_price > 0`,
+- `*_trigger_price_type` ∈ {`MARKET`, `MARK`, `INDEX`} (`ORACLE` not supported).
+
+`place_order.py` builds these flags from `--tp-price` / `--sl-price` /
+`--tpsl-trigger-type`; passing both `--tp-price` and `--sl-price` is the
+common case.
 
 ## Slippage tip (MARKET orders)
 

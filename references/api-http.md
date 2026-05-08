@@ -74,8 +74,12 @@ curl -X POST $BASE/createOrder \
 
 Required vs optional:
 - Required: `exchange_account_id`, `client_order_id` (idempotent), `symbol`, `side` (BUY|SELL), `order_type` (LIMIT|MARKET|STOP_LIMIT|STOP_MARKET|TAKE_PROFIT_LIMIT|TAKE_PROFIT_MARKET).
-- Often required: `size`, `price` (LIMIT must have price).
-- Optional: `time_in_force` (GTC|FOK|IOC|POST_ONLY), `reduce_only`, `trigger_price`, `trigger_type` (ORACLE|INDEX|MARKET|MARK).
+- Often required: `size`, `price` (LIMIT must have price > 0).
+- Optional: `time_in_force` (GTC|FOK|IOC|POST_ONLY), `reduce_only`, `trigger_price`, `trigger_type` (INDEX|MARKET|MARK; `ORACLE` not supported for attached TP/SL).
+- Attached TP/SL (when `is_open_tpsl_order=true`):
+  - At least one of `is_set_open_tp` / `is_set_open_sl` must be `true`.
+  - Whichever leg is enabled must have its `*_trigger_price > 0` and a valid `*_trigger_price_type` (`MARKET` / `MARK` / `INDEX`).
+  - Both legs are managed as an OCO pair: when one triggers the other auto-cancels.
 - **Required for agent-mode accounts**: `reasoning` — plain string, the
   agent's rationale for this order. Max **4096 bytes** (UTF-8). Missing on
   an agent-mode account or over-limit returns `INVALID_ARGUMENT`. Manual
@@ -169,6 +173,27 @@ curl "$BASE/portfolio/balances?exchange_account_id=$ACCT" \
 curl "$BASE/openOrders?exchange_account_id=$ACCT" \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+Each entry order in the response carries two arrays — **always present**, possibly empty — that embed the attached TP / SL legs (only `PENDING` ones):
+
+```json
+{
+  "order_id": "<entry_id>",
+  "side": "BUY",
+  "status": "OPEN",
+  "take_profit": [
+    {"order_id": "<tp_id>", "order_type": "MARKET", "trigger_price": "90000", "trigger_type": "MARK", "size": "0.001", "create_at": 1778251232458}
+  ],
+  "stop_loss": [
+    {"order_id": "<sl_id>", "order_type": "MARKET", "trigger_price": "60000", "trigger_type": "MARK", "size": "0.001", "create_at": 1778251232467}
+  ]
+}
+```
+
+- `take_profit[].order_id` / `stop_loss[].order_id` are `condition_order_id`s — pass them straight to `/cancelOrder`.
+- Once the entry order is `FILLED` it leaves `/openOrders`; from then on look up the TP/SL via `/conditionOrders`.
+- Triggered (`TRIGGERED`) and cancelled (`CANCELED`) legs are not embedded — query `/conditionOrders` for history.
+- Standalone trigger orders (`order_type=STOP_*` / `TAKE_PROFIT_*`) are never embedded; they only show under `/conditionOrders`.
 
 ### GET /historyOrders
 
