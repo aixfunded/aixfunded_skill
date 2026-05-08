@@ -36,9 +36,9 @@ The same `bind` command also handles account switching later (*"Switch binding, 
 |---|---|
 | `config.py` | Manage skill binding: `show`, `list-accounts`, `bind`, `reset-challenge`, `migrate`, `bootstrap` |
 | `place_order.py` | Place orders (market / limit / stop / take-profit). Supports attached TP/SL and `--reasoning` for agent-mode challenges. |
-| `close_position.py` | Close positions via market reduce-only. Enforces the 1-minute min-hold rule. |
+| `close_position.py` | Close positions via market reduce-only. Best-effort 1-minute min-hold guard (skipped silently if the position record has no open timestamp; the platform-side rule still applies). |
 | `cancel_order.py` | Cancel single or all open orders. |
-| `query.py` | Query `positions`, `balance`, `open-orders`, `condition-orders`, `history-orders`, `trades`, `pnl-closed`, `leverage`. |
+| `query.py` | Query `positions`, `balance`, `open-orders` (entry orders include embedded `take_profit[]` / `stop_loss[]` arrays for attached TP/SL), `condition-orders`, `history-orders`, `trades`, `pnl-closed`, `leverage`. |
 | `markets.py` | Public market data: board, kline, orderbook, trades, contract summary. |
 | `set_leverage.py` | Adjust leverage (respecting per-mode caps: Challenge 10x, Payout 20x). |
 | `risk_status.py` | Unified risk snapshot: balance + open positions + per-mode thresholds + challenge period. |
