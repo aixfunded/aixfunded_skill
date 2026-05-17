@@ -2,7 +2,7 @@
 
 Usage:
   python3 api.py GET /positions --query "exchange_account_id=987654321"
-  python3 api.py POST /createOrder --json '{"symbol":"BTC-USDC",...}'
+  python3 api.py POST /createOrder --json '{"symbol":"BTC-USDT",...}'
 
 WebSocket is out of scope for the MVP; see references/api-websocket.md if needed.
 """

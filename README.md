@@ -18,7 +18,7 @@ The AiXFunded dashboard (https://aixfunded.com/app/agent-api) generates the exac
 
 2. **Write credentials locally.** Paste a terminal snippet from the dashboard. It writes `~/.aixfund/accounts/<account_id>.json` containing your token and API URLs — this step runs only on your machine, the token never reaches the agent.
 
-3. **Bind the skill.** Tell the agent: *"Initialize challenge, account_id: xxxxx"*. The agent runs `python3 scripts/config.py bind --account-id xxxxx`, which calls `/exchange-accounts` to infer `mode` / `initial_balance` and writes `state.json`.
+3. **Bind the skill.** Tell the agent: *"Initialize challenge, account_id: xxxxx"*. The agent runs `python3 scripts/config.py bind --account-id xxxxx`, which calls `/exchange-accounts` to infer `mode` / `initial_balance`, caches `active_exchange` from `/market/metadata`, and writes `state.json`.
 
 The same `bind` command also handles account switching later (*"Switch binding, account_id: yyyyy"*).
 

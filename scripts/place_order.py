@@ -44,7 +44,7 @@ REASONING_MAX_BYTES = 4096
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Place an order")
-    p.add_argument("--symbol", required=True, help="e.g. BTC-USDC")
+    p.add_argument("--symbol", required=True, help="e.g. BTC-USDT")
     p.add_argument("--side", required=True, choices=["BUY", "SELL"])
     p.add_argument("--order-type", required=True,
                    choices=["LIMIT", "MARKET", "STOP_LIMIT", "STOP_MARKET",

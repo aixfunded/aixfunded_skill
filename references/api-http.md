@@ -52,7 +52,7 @@ curl -X POST $BASE/createOrder \
   -d '{
     "exchange_account_id": "'$ACCT'",
     "client_order_id": "agent-'$(date +%s%N | cut -c1-13)'",
-    "symbol": "BTC-USDC",
+    "symbol": "BTC-USDT",
     "side": "BUY",
     "size": "0.1",
     "price": "60000",
@@ -126,7 +126,7 @@ Response:
 curl -X POST $BASE/cancelOrder \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"exchange_account_id":"'$ACCT'","exchange_order_id":"1234567890","trace_id":"trace-001","symbol":"BTC-USDC"}'
+  -d '{"exchange_account_id":"'$ACCT'","exchange_order_id":"1234567890","trace_id":"trace-001","symbol":"BTC-USDT"}'
 ```
 
 ### POST /cancelOrders (batch by symbol)
@@ -135,7 +135,7 @@ curl -X POST $BASE/cancelOrder \
 curl -X POST $BASE/cancelOrders \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDC"}'
+  -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDT"}'
 ```
 
 ### POST /setLeverage
@@ -144,7 +144,7 @@ curl -X POST $BASE/cancelOrders \
 curl -X POST $BASE/setLeverage \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDC","leverage":5,"margin_mode":"CROSS"}'
+  -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDT","leverage":5,"margin_mode":"CROSS"}'
 ```
 
 > Caps: Challenge 10X / Payout 20X.
@@ -156,7 +156,7 @@ curl -X POST $BASE/setLeverage \
 ### GET /positions
 
 ```bash
-curl "$BASE/positions?exchange_account_id=$ACCT&symbol=BTC-USDC" \
+curl "$BASE/positions?exchange_account_id=$ACCT&symbol=BTC-USDT" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -250,32 +250,45 @@ curl $BASE/markets/board
 curl "$BASE/markets/search?keyword=BTC"
 ```
 
+Note on the `exchange` parameter (post 2026-05-15): the backend selects the
+"active exchange" at runtime via Nacos and currently returns `binance`
+(previously `apex`). All `/markets/*` query endpoints below tolerate a stale
+name (e.g. `exchange=apex`) and silently map it to the active hub, but the
+response's `exchange` field will always be the active name. The cleanest
+flow is to call `GET /market/metadata` first and use `data.active_exchange`
+for subsequent calls.
+
 ### GET /markets/kline
 
 ```bash
-curl "$BASE/markets/kline?exchange=apex&symbol=BTC-USDC&timeframe=1m&limit=100"
+# Substitute $EXCH with data.active_exchange from /market/metadata.
+EXCH=$(curl -s "$BASE/market/metadata" | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["active_exchange"])')
+curl "$BASE/markets/kline?exchange=$EXCH&symbol=BTC-USDT&timeframe=1m&limit=100"
 ```
 
 ### GET /markets/orderbook
 
 ```bash
-curl "$BASE/markets/orderbook?exchange=apex&symbol=BTC-USDC"
+curl "$BASE/markets/orderbook?exchange=$EXCH&symbol=BTC-USDT"
 ```
 
 ### GET /markets/trades
 
 ```bash
-curl "$BASE/markets/trades?exchange=apex&symbol=BTC-USDC"
+curl "$BASE/markets/trades?exchange=$EXCH&symbol=BTC-USDT"
 ```
 
 ### GET /markets/contracts/{exchange}/{symbol}/summary
 
 ```bash
-curl $BASE/markets/contracts/apex/BTC-USDC/summary
+curl "$BASE/markets/contracts/$EXCH/BTC-USDT/summary"
 ```
 
 ### GET /market/metadata
 
 ```bash
 curl $BASE/market/metadata
+# Top-level data.active_exchange tells you the current active venue.
+# Use it as the value for all `exchange=` params and as the {exchange} path
+# segment in /markets/contracts/{exchange}/{symbol}/summary.
 ```

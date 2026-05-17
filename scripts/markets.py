@@ -3,17 +3,33 @@
 Subcommands:
   board                                            full-market ticker
   search   --keyword
-  kline    --exchange --symbol --timeframe [--limit]
-  orderbook --exchange --symbol
-  trades   --exchange --symbol
-  contract --exchange --symbol                     contract detail
-  metadata                                         all-pair metadata
+  kline    [--exchange] --symbol --timeframe [--limit]
+  orderbook [--exchange] --symbol
+  trades   [--exchange] --symbol
+  contract [--exchange] --symbol                   contract detail
+  metadata                                         all-pair metadata (incl. active_exchange)
+
+Since the 2026-05-15 backend upgrade the "active exchange" is chosen at
+runtime by the server (currently `binance`, previously `apex`). When
+`--exchange` is omitted these subcommands fetch `/market/metadata` once and
+use `active_exchange`, so the skill keeps working across future swaps. The
+backend is also tolerant of stale names (`exchange=apex` is silently mapped
+to the active hub), but prefer the active name to keep responses readable.
 """
 from __future__ import annotations
 
 import argparse
 
-from _common import http_request, load_config, print_json
+from _common import die, get_active_exchange, http_request, load_config, print_json
+
+
+def _resolve_exchange(args, cfg) -> str:
+    if args.exchange:
+        return args.exchange
+    active = get_active_exchange(cfg=cfg)
+    if not active:
+        die("Could not resolve active_exchange from /market/metadata; pass --exchange explicitly.")
+    return active
 
 
 def cmd_board(_args, cfg):
@@ -27,7 +43,8 @@ def cmd_search(args, cfg):
 
 
 def cmd_kline(args, cfg):
-    q = {"exchange": args.exchange, "symbol": args.symbol, "timeframe": args.timeframe}
+    exch = _resolve_exchange(args, cfg)
+    q = {"exchange": exch, "symbol": args.symbol, "timeframe": args.timeframe}
     if args.limit:
         q["limit"] = args.limit
     resp = http_request("GET", "/markets/kline", query=q, cfg=cfg)
@@ -35,19 +52,22 @@ def cmd_kline(args, cfg):
 
 
 def cmd_orderbook(args, cfg):
+    exch = _resolve_exchange(args, cfg)
     resp = http_request("GET", "/markets/orderbook",
-                        query={"exchange": args.exchange, "symbol": args.symbol}, cfg=cfg)
+                        query={"exchange": exch, "symbol": args.symbol}, cfg=cfg)
     print_json(resp.get("data", resp))
 
 
 def cmd_trades(args, cfg):
+    exch = _resolve_exchange(args, cfg)
     resp = http_request("GET", "/markets/trades",
-                        query={"exchange": args.exchange, "symbol": args.symbol}, cfg=cfg)
+                        query={"exchange": exch, "symbol": args.symbol}, cfg=cfg)
     print_json(resp.get("data", resp))
 
 
 def cmd_contract(args, cfg):
-    path = f"/markets/contracts/{args.exchange}/{args.symbol}/summary"
+    exch = _resolve_exchange(args, cfg)
+    path = f"/markets/contracts/{exch}/{args.symbol}/summary"
     resp = http_request("GET", path, cfg=cfg)
     print_json(resp.get("data", resp))
 
@@ -66,15 +86,16 @@ def main() -> None:
     sp = sub.add_parser("search"); sp.add_argument("--keyword", required=True); sp.set_defaults(func=cmd_search)
 
     sp = sub.add_parser("kline")
-    sp.add_argument("--exchange", required=True)
+    sp.add_argument("--exchange", default=None,
+                    help="Exchange name; default = active_exchange from /market/metadata.")
     sp.add_argument("--symbol", required=True)
     sp.add_argument("--timeframe", required=True, help="1m | 5m | 1h | 1d | ...")
     sp.add_argument("--limit", type=int)
     sp.set_defaults(func=cmd_kline)
 
-    sp = sub.add_parser("orderbook"); sp.add_argument("--exchange", required=True); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_orderbook)
-    sp = sub.add_parser("trades"); sp.add_argument("--exchange", required=True); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_trades)
-    sp = sub.add_parser("contract"); sp.add_argument("--exchange", required=True); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_contract)
+    sp = sub.add_parser("orderbook"); sp.add_argument("--exchange", default=None); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_orderbook)
+    sp = sub.add_parser("trades"); sp.add_argument("--exchange", default=None); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_trades)
+    sp = sub.add_parser("contract"); sp.add_argument("--exchange", default=None); sp.add_argument("--symbol", required=True); sp.set_defaults(func=cmd_contract)
 
     sub.add_parser("metadata").set_defaults(func=cmd_metadata)
 

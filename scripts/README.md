@@ -46,9 +46,9 @@ install the skill twice.
    ```bash
    python3 config.py bind --account-id <id>
    ```
-   which calls `/exchange-accounts` to infer `mode` and `initial_balance` and
-   writes `state.json`. Same command is used to switch accounts later —
-   just change the id.
+   which calls `/exchange-accounts` to infer `mode` and `initial_balance`,
+   caches `active_exchange` from `/market/metadata`, and writes `state.json`.
+   Same command is used to switch accounts later — just change the id.
 
 ## Legacy (token passes through the AI)
 
@@ -82,10 +82,15 @@ python3 config.py bootstrap --token "af_..."
 | Trades | `python3 query.py trades` |
 | Closed PnL | `python3 query.py pnl-closed` |
 | Market board | `python3 markets.py board` |
-| Kline | `python3 markets.py kline --exchange apex --symbol BTC-USDC --timeframe 1m --limit 100` |
-| Orderbook | `python3 markets.py orderbook --exchange apex --symbol BTC-USDC` |
+| Metadata (active_exchange + symbols) | `python3 markets.py metadata` |
+| Kline | `python3 markets.py kline --symbol BTC-USDT --timeframe 1m --limit 100` |
+| Orderbook | `python3 markets.py orderbook --symbol BTC-USDT` |
 | Risk snapshot | `python3 risk_status.py` |
 | Generic fallback | `python3 api.py GET /xxx [--query "a=1"]` or `POST /xxx --json '{...}'` |
+
+Note: market-data subcommands' `--exchange` is optional. When omitted, the
+script reads `active_exchange` from `/market/metadata` (currently `binance`;
+previously `apex`). Pass `--exchange <name>` only to override.
 
 ## Failure fallback
 
@@ -100,7 +105,7 @@ ACCT=$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.a
 curl -X POST http://<AIXFUND_HOST>:8088/api/v1/createOrder \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"exchange_account_id":"'$ACCT'","client_order_id":"agent-test-001","symbol":"BTC-USDC","side":"BUY","size":"0.1","price":"60000","order_type":"LIMIT","time_in_force":"GTC"}'
+  -d '{"exchange_account_id":"'$ACCT'","client_order_id":"agent-test-001","symbol":"BTC-USDT","side":"BUY","size":"0.1","price":"60000","order_type":"LIMIT","time_in_force":"GTC"}'
 ```
 
 ## Conventions

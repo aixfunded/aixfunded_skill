@@ -22,6 +22,37 @@ Credentials and runtime state are kept in separate files:
 One skill install = one bound account. To operate two accounts in parallel,
 install the skill twice (each copy has its own `state.json`).
 
+## Active exchange is runtime-resolved (post 2026-05-15)
+
+The propdesk backend now picks the "active exchange" at runtime via Nacos
+config. Currently `binance` on testnet; previously `apex`. Do NOT hardcode
+the name anywhere — instead:
+
+- Read it from `state.json` (`active_exchange`, cached by `config.py bind`
+  and `risk_status.py`), or
+- Call `markets.py metadata` and use `data.active_exchange`.
+
+`markets.py` subcommands default `--exchange` to the active value, so most
+agent calls don't need to pass it at all. Responses always carry the active
+name in `data.exchange` (HTTP and WS); if you see a value that differs from
+your cached one, the backend has swapped — refresh by reading metadata.
+
+The server also tolerates the legacy `exchange=apex` input and silently
+maps it to the active hub, so old hard-coded clients keep working — but
+prefer the active name.
+
+**Data-reconciliation caveat:** historical orders / trades / positions
+returned by query endpoints get their `exchange` field rewritten to the
+current active name at query time. It is NOT the venue the order originally
+executed on. For after-the-fact reconciliation use `created_at` timestamps
+plus the human-maintained swap timeline, not the `exchange` field.
+
+**Available symbols are exchange-dependent.** Examples below use
+`BTC-USDT` because the current active hub is binance, which quotes against
+USDT. Earlier APEX listings used USDC. Do NOT hardcode the quote currency —
+read `data.symbols[]` from `markets.py metadata` to discover what is
+tradeable right now, and pick from that list.
+
 ## Workflow on first invocation in a session
 
 ### Step 1: check current binding
@@ -60,7 +91,10 @@ What `bind` does:
 3. Infers `mode` from `initial_capital` (1000→lite, 10000→standard-10k,
    20000→standard-20k, 30000→standard-30k, 50000→standard-50k) or sets
    `mode=payout` when `account_phase=="PAYOUT"`.
-4. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`.
+4. Best-effort call to `/market/metadata` to cache `active_exchange`
+   (skipped silently if the call fails — not a hard dependency).
+5. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`
+   + `active_exchange`.
 
 Never ask the user for a challenge start date. The challenge period starts
 automatically at the first successful order placement —
@@ -129,7 +163,10 @@ python3 skills/aixfund-trading/scripts/query.py condition-orders    # TP/SL/STOP
 
 # Market data
 python3 skills/aixfund-trading/scripts/markets.py board
-python3 skills/aixfund-trading/scripts/markets.py kline --exchange apex --symbol BTC-USDT --timeframe 1m --limit 100
+python3 skills/aixfund-trading/scripts/markets.py metadata        # also shows active_exchange
+python3 skills/aixfund-trading/scripts/markets.py kline --symbol BTC-USDT --timeframe 1m --limit 100
+# --exchange is optional; defaults to the active_exchange returned by /market/metadata
+# (currently "binance" on testnet; previously "apex"). Override with --exchange <name> only if needed.
 
 # Risk
 python3 skills/aixfund-trading/scripts/risk_status.py

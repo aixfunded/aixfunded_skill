@@ -244,6 +244,43 @@ def http_request(
     return parsed
 
 
+def fetch_active_exchange(cfg: dict[str, Any] | None = None) -> str | None:
+    """Call /market/metadata and return the server's `active_exchange`.
+
+    Since the 2026-05-15 backend upgrade the active exchange is chosen at
+    runtime (Nacos config). Returns None if the field is absent and no
+    `exchanges[]` entry can be used as a fallback.
+    """
+    resp = http_request("GET", "/market/metadata", cfg=cfg)
+    data = resp.get("data") or {}
+    active = data.get("active_exchange")
+    if active:
+        return active
+    exchanges = data.get("exchanges") or []
+    if exchanges:
+        return exchanges[0].get("exchange")
+    return None
+
+
+def get_active_exchange(cfg: dict[str, Any] | None = None, *, refresh: bool = False) -> str | None:
+    """Return the active_exchange, cached in state.json.
+
+    First call (or `refresh=True`) hits /market/metadata; subsequent calls
+    read the cached value from state.json. Callers that care about catching
+    a runtime swap should pass `refresh=True` or watch WS `data.exchange`.
+    """
+    state = load_state()
+    if not refresh:
+        cached = state.get("active_exchange")
+        if cached:
+            return cached
+    active = fetch_active_exchange(cfg=cfg)
+    if active:
+        state["active_exchange"] = active
+        save_state(state)
+    return active
+
+
 def server_utc_ts_from_headers(response_headers: dict[str, str]) -> int:
     """Parse HTTP response `Date` header into a UTC unix timestamp (seconds).
 

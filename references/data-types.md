@@ -12,7 +12,7 @@
 | --- | --- |
 | order_id | Internal order ID |
 | exchange_order_id | Exchange-side order ID |
-| exchange | Exchange identifier, e.g. "apex" |
+| exchange | Exchange identifier; runtime-resolved on the server. Currently "binance" on testnet; previously "apex". On queries the server **rewrites this field to the active name regardless of where the order originally executed** — do NOT use it for cross-venue reconciliation; use `created_at` + the swap timeline instead. |
 | exchange_account_id | Account ID |
 | client_order_id | Client-supplied ID (auto-generated as `agent-{ms}-{uuid8}` by `place_order.py`) |
 | symbol | Trading pair |

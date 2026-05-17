@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from _common import http_request, load_config, print_json
+from _common import get_active_exchange, http_request, load_config, print_json
 
 
 # Source: aixfunded.com/plans + PRD.
@@ -113,8 +113,16 @@ def main() -> None:
     elif th.get("challenge_period_days"):
         challenge_started = False
 
+    # Active exchange is chosen at runtime by the backend (post 2026-05-15).
+    # Pull from state.json cache; refresh from /market/metadata if absent.
+    try:
+        active_exchange = get_active_exchange(cfg=cfg)
+    except SystemExit:
+        active_exchange = None
+
     output = {
         "exchange_account_id": cfg["exchange_account_id"],
+        "active_exchange": active_exchange,
         "mode": mode,
         "initial_balance": initial_balance,
         "total_equity_value": total_equity,

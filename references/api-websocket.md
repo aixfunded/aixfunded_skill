@@ -87,8 +87,14 @@ Recommended: client sends ping every 15-20s. Server pings every 30s.
 ### subscribe
 
 ```json
-{"action":"subscribe","exchange":"apex","topic":"ticker","symbol":"BTC-USDC"}
+{"action":"subscribe","exchange":"binance","topic":"ticker","symbol":"BTC-USDT"}
 ```
+
+The `exchange` value should be the current `active_exchange` returned by
+`GET /market/metadata` (currently `binance`; previously `apex`). The server
+also tolerates stale names like `"apex"` and silently maps them to the
+active hub — but the `exchange` field in every ack and `data` message will
+always be the active name, not an echo of what you sent.
 
 Available topics:
 | Topic | Required parameters |
@@ -101,7 +107,7 @@ Available topics:
 ### unsubscribe
 
 ```json
-{"action":"unsubscribe","exchange":"apex","topic":"ticker","symbol":"BTC-USDC"}
+{"action":"unsubscribe","exchange":"binance","topic":"ticker","symbol":"BTC-USDT"}
 ```
 
 ### Heartbeat
@@ -114,8 +120,13 @@ Available topics:
 ### Push payload
 
 ```json
-{"type":"data","topic":"ticker","symbol":"BTC-USDC","exchange":"apex","data":{...}}
+{"type":"data","topic":"ticker","symbol":"BTC-USDT","exchange":"binance","data":{...}}
 ```
+
+**Detecting a runtime exchange swap:** any time `data.exchange` differs from
+your cached `active_exchange`, the backend has swapped. Refresh by calling
+`GET /market/metadata` again (or `markets.py metadata`). This is the
+cheapest way to monitor a swap — no extra subscription needed.
 
 ---
 

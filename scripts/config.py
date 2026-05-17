@@ -33,6 +33,7 @@ from _common import (
     STATE_PATH,
     credential_path,
     die,
+    fetch_active_exchange,
     http_request,
     list_credential_account_ids,
     load_credentials,
@@ -163,6 +164,19 @@ def cmd_bind(args) -> None:
         for k in ("challenge_start_ts", "challenge_start_date_utc"):
             if state.get(k):
                 new_state[k] = state[k]
+
+    # Cache active_exchange so scripts don't need to hit /market/metadata
+    # on every run. Best-effort — bind shouldn't fail if metadata is down.
+    try:
+        active_exchange = fetch_active_exchange(
+            cfg={"token": creds["token"], "base_url_http": creds["base_url_http"],
+                 "exchange_account_id": account_id}
+        )
+        if active_exchange:
+            new_state["active_exchange"] = active_exchange
+    except SystemExit:
+        # http_request -> die() raises SystemExit. Don't block bind on this.
+        pass
 
     save_state(new_state)
 
