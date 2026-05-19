@@ -88,14 +88,17 @@ What `bind` does:
 1. Verifies `~/.aixfund/accounts/<id>.json` exists (paste the STEP 2 snippet
    if not).
 2. Calls `GET /exchange-accounts` with the token in that file.
-3. Infers `mode` from `initial_capital`:
-   - 1000 → `lite`
-   - 5000 / 15000 / 25000 → Standard only (`standard-Nk`)
-   - 20000 / 30000 → Boost only (`boost-Nk`)
-   - 10000 / 50000 → ambiguous (Standard and Boost both have these
-     sizes); bind defaults to Standard. Override if Boost with
-     `--skip-lookup --mode boost-NNk --initial-balance <amount>`.
-   - `account_phase=="PAYOUT"` → `payout`.
+3. Infers `mode` from the `/exchange-accounts` payload, in this order:
+   - `account_phase == "PAYOUT"` → `payout`.
+   - `initial_capital == 1000` → `lite`.
+   - Otherwise look at `risk.max_drawdown_pct`:
+     - `6` → Standard (`standard-NNk`)
+     - `5` → Boost (`boost-NNk`)
+   - The size suffix (`5k` / `10k` / ... / `50k`) comes from
+     `initial_capital`.
+   `risk.max_drawdown_pct` is the only field the backend exposes that
+   actually tracks which set of rules will be enforced, so the skill
+   trusts that over any marketing-side tier table.
 4. Best-effort call to `/market/metadata` to cache `active_exchange`
    (skipped silently if the call fails — not a hard dependency).
 5. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`

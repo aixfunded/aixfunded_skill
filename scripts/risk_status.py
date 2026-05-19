@@ -40,15 +40,24 @@ THRESHOLDS_BY_MODE = {
         "valid_trading_days_required": None,
         "challenge_period_days": None,
     },
+    # Threshold values do not depend on capital — only on the track
+    # (Standard vs Boost). All tier names a real account might carry are
+    # registered here so `bind` never falls off a missing-key error.
+    # The marketing literature retires some sizes from time to time, but
+    # the live backend still issues accounts at those sizes (e.g. a $30k
+    # Standard account exists on testnet as of 2026-05-19).
     "standard-5k":  dict(_STANDARD_THRESHOLDS),
     "standard-10k": dict(_STANDARD_THRESHOLDS),
     "standard-15k": dict(_STANDARD_THRESHOLDS),
+    "standard-20k": dict(_STANDARD_THRESHOLDS),
     "standard-25k": dict(_STANDARD_THRESHOLDS),
+    "standard-30k": dict(_STANDARD_THRESHOLDS),
     "standard-50k": dict(_STANDARD_THRESHOLDS),
-    # Boost tiers: $10k / $20k / $30k / $50k only. There is no $5k / $15k /
-    # $25k Boost product.
+    "boost-5k":  dict(_BOOST_THRESHOLDS),
     "boost-10k": dict(_BOOST_THRESHOLDS),
+    "boost-15k": dict(_BOOST_THRESHOLDS),
     "boost-20k": dict(_BOOST_THRESHOLDS),
+    "boost-25k": dict(_BOOST_THRESHOLDS),
     "boost-30k": dict(_BOOST_THRESHOLDS),
     "boost-50k": dict(_BOOST_THRESHOLDS),
     "payout": {

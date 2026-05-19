@@ -44,33 +44,35 @@ from _common import (
 )
 
 
-# Known challenge tiers (initial_capital -> mode).
+# Mode inference is now data-driven from /exchange-accounts:
 #
-# Per the 2026-05-14 parameter update + the Boost mode MRD:
-#   - Lite stays at $1,000.
-#   - Standard tiers: $5k / $10k / $15k / $25k / $50k. The previous
-#     $20k / $30k Standard tiers have been retired.
-#   - Boost tiers: $10k / $20k / $30k / $50k (note: Boost keeps $20k / $30k
-#     even though Standard dropped them, and Boost does NOT have $5k / $15k
-#     / $25k).
+#   - account_phase == "PAYOUT"          -> payout
+#   - initial_capital == 1000            -> lite
+#   - risk.max_drawdown_pct == 6         -> standard-NNk   (matches the
+#                                                          Standard 6% cap)
+#   - risk.max_drawdown_pct == 5         -> boost-NNk      (matches the
+#                                                          Boost 5% cap)
 #
-# At the $10k / $50k capital points Standard and Boost share a size, so
-# capital alone cannot distinguish them. `/exchange-accounts` does not yet
-# expose a discriminator. Until the backend surfaces one, `bind` defaults
-# to Standard. Override with `--skip-lookup --mode boost-NNk --initial-balance N`
-# when the account is known to be Boost. At capital sizes that are unique
-# to one track (Boost: $20k / $30k; Standard: $5k / $15k / $25k) capital is
-# still ambiguous in code — bind will pick the Standard mode if it exists,
-# else the Boost mode. Mismatches must be corrected with --skip-lookup.
-INITIAL_CAPITAL_TO_MODE = {
-    1000: "lite",
-    5000: "standard-5k",
-    10000: "standard-10k",
-    15000: "standard-15k",
-    20000: "boost-20k",
-    25000: "standard-25k",
-    30000: "boost-30k",
-    50000: "standard-50k",
+# This is the only field /exchange-accounts exposes that distinguishes
+# Standard from Boost — capital alone is ambiguous (both tracks ship $10k
+# and $50k, and live testnet shows a $30k Standard account even though
+# Standard was supposedly retired at $30k). Reading max_drawdown_pct off
+# the server-side risk record reflects what the backend will actually
+# enforce, regardless of what the marketing pages say.
+#
+# Suffix table (which size names exist as recognised modes):
+
+# Tier suffix table (capital -> NNk). These are the strings that appear
+# after the "standard-" / "boost-" prefix.
+_CAPITAL_TO_TIER_SUFFIX = {
+    1000:  "1k",
+    5000:  "5k",
+    10000: "10k",
+    15000: "15k",
+    20000: "20k",
+    25000: "25k",
+    30000: "30k",
+    50000: "50k",
 }
 
 
@@ -103,13 +105,35 @@ def _infer_mode_and_balance(token: str, base_url_http: str, account_id: str) -> 
 
     if phase == "PAYOUT":
         return "payout", (initial_capital or None)
-    mode = INITIAL_CAPITAL_TO_MODE.get(initial_capital)
-    if not mode:
+    if initial_capital == 1000:
+        return "lite", initial_capital
+
+    # Distinguish Standard vs Boost by the server-side risk cap.
+    risk = acc.get("risk") or {}
+    try:
+        max_dd = int(float(risk.get("max_drawdown_pct") or 0))
+    except (TypeError, ValueError):
+        max_dd = 0
+
+    if max_dd == 6:
+        track = "standard"
+    elif max_dd == 5:
+        track = "boost"
+    else:
         die(
-            f"Cannot infer challenge mode: account initial_capital={initial_capital} "
-            f"does not match any known tier {sorted(INITIAL_CAPITAL_TO_MODE)}."
+            f"Cannot infer challenge mode: account risk.max_drawdown_pct="
+            f"{risk.get('max_drawdown_pct')!r} is neither 6 (Standard) "
+            f"nor 5 (Boost)."
         )
-    return mode, initial_capital
+
+    suffix = _CAPITAL_TO_TIER_SUFFIX.get(initial_capital)
+    if not suffix:
+        die(
+            f"Cannot infer challenge mode: unrecognised initial_capital="
+            f"{initial_capital}. Recognised sizes: "
+            f"{sorted(_CAPITAL_TO_TIER_SUFFIX)}"
+        )
+    return f"{track}-{suffix}", initial_capital
 
 
 def _redact_token(token: str) -> str:
