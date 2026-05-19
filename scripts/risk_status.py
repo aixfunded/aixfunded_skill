@@ -8,31 +8,42 @@ from datetime import datetime, timezone
 from _common import get_active_exchange, http_request, load_config, print_json
 
 
-# Source: aixfunded.com/plans + PRD.
+# Source: aixfunded.com/plans + the 2026-05-14 parameter update.
+#
+# Headline changes from the prior version:
+#   - Lite: profit target 8% -> 12%, max loss 5% -> 3%.
+#   - Standard: $20k / $30k tiers retired; $5k / $15k / $25k added.
+#   - Standard + Boost: 10-day evaluation window REMOVED (no time limit).
+#   - Payout split: 70% -> 80% (informational; not threshold-based).
+#   - Boost mode is new; threshold-wise it mirrors Standard except for
+#     valid_trading_days_required (7 for Boost too, matching the update).
+_STANDARD_THRESHOLDS = {
+    "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
+    "valid_trading_days_required": 7, "challenge_period_days": None,
+}
+_BOOST_THRESHOLDS = {
+    "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
+    "valid_trading_days_required": 7, "challenge_period_days": None,
+}
+
 THRESHOLDS_BY_MODE = {
     "lite": {
-        "profit_target_pct": 8,
-        "max_loss_pct": 5,
+        "profit_target_pct": 12,
+        "max_loss_pct": 3,
         "daily_drawdown_pct": None,
         "valid_trading_days_required": None,
         "challenge_period_days": None,
     },
-    "standard-10k": {
-        "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-        "valid_trading_days_required": 7, "challenge_period_days": 10,
-    },
-    "standard-20k": {
-        "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-        "valid_trading_days_required": 7, "challenge_period_days": 10,
-    },
-    "standard-30k": {
-        "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-        "valid_trading_days_required": 7, "challenge_period_days": 10,
-    },
-    "standard-50k": {
-        "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-        "valid_trading_days_required": 7, "challenge_period_days": 10,
-    },
+    "standard-5k":  dict(_STANDARD_THRESHOLDS),
+    "standard-10k": dict(_STANDARD_THRESHOLDS),
+    "standard-15k": dict(_STANDARD_THRESHOLDS),
+    "standard-25k": dict(_STANDARD_THRESHOLDS),
+    "standard-50k": dict(_STANDARD_THRESHOLDS),
+    "boost-5k":  dict(_BOOST_THRESHOLDS),
+    "boost-10k": dict(_BOOST_THRESHOLDS),
+    "boost-15k": dict(_BOOST_THRESHOLDS),
+    "boost-25k": dict(_BOOST_THRESHOLDS),
+    "boost-50k": dict(_BOOST_THRESHOLDS),
     "payout": {
         "profit_target_pct": None,
         "max_loss_pct": 6, "daily_drawdown_pct": 3,
@@ -46,6 +57,9 @@ RULE_REMINDERS = [
     "Forbidden: multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.",
     "Leverage caps: Challenge 10X / Payout 20X.",
     "Rate limit: max 5 orders per second per account.",
+    "Inactivity: account is suspended after 30 calendar days without a real fill. "
+    "Logins, market data, agent connect, placing/cancelling orders, deposits and "
+    "auto-liquidations do NOT count as activity — only an executed trade resets the clock.",
 ]
 
 

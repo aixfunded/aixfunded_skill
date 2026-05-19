@@ -88,9 +88,13 @@ What `bind` does:
 1. Verifies `~/.aixfund/accounts/<id>.json` exists (paste the STEP 2 snippet
    if not).
 2. Calls `GET /exchange-accounts` with the token in that file.
-3. Infers `mode` from `initial_capital` (1000→lite, 10000→standard-10k,
-   20000→standard-20k, 30000→standard-30k, 50000→standard-50k) or sets
-   `mode=payout` when `account_phase=="PAYOUT"`.
+3. Infers `mode` from `initial_capital`: 1000→lite, 5000→standard-5k,
+   10000→standard-10k, 15000→standard-15k, 25000→standard-25k,
+   50000→standard-50k; or sets `mode=payout` when `account_phase=="PAYOUT"`.
+   (Boost tiers share the same capital sizes as Standard. The backend does
+   not yet expose a Boost discriminator, so bind defaults to Standard — if
+   the account is actually Boost, override with `--skip-lookup --mode
+   boost-NNk --initial-balance <amount>`.)
 4. Best-effort call to `/market/metadata` to cache `active_exchange`
    (skipped silently if the call fails — not a hard dependency).
 5. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`
@@ -248,7 +252,11 @@ See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 - **Max 5 orders per second per account** (rate limit).
 - **Leverage caps**: Challenge 10X / Payout 20X.
 - **Forbidden**: multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.
-- **Standard mode thresholds**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, 10-day evaluation period.
+- **Lite mode thresholds** (2026-05-14 update): profit target 12%, max loss 3%. No time limit.
+- **Standard / Boost thresholds**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days. **No time limit** — the 10-day deadline was removed in the 2026-05-14 update.
+- **Standard / Boost tiers**: $5k / $10k / $15k / $25k / $50k. The $20k and $30k tiers are retired. Agent mode is only available on the $5k / $10k / $15k tiers.
+- **Payout profit split**: 80% to trader. Minimum withdrawal $100 (including the first one). The original entry fee is **not** refunded.
+- **Inactivity suspension (30 days)**: an account is suspended after 30 calendar days without an executed fill. Logins, market-data reads, agent connections, placing/cancelling orders that never fill, and auto-liquidations do NOT count as activity. Only a real trade resets the clock.
 - **AI reasoning score (REQUIRED for agent-mode accounts)**: every order
   must carry a fresh, order-specific `--reasoning` string. The server
   **requires** this field on agent-mode accounts — missing or empty triggers

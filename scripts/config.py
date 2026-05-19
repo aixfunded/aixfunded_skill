@@ -44,12 +44,27 @@ from _common import (
 )
 
 
-# Known challenge tiers (initial_capital -> mode)
+# Known challenge tiers (initial_capital -> mode).
+#
+# Per the 2026-05-14 parameter update:
+#   - Lite stays at $1,000.
+#   - Standard tiers are now $5k / $10k / $15k / $25k / $50k. The previous
+#     $20k / $30k tiers have been retired.
+#   - A new "Boost" track exists at the same five capital sizes ($5k / $10k
+#     / $15k / $25k / $50k). It uses different thresholds (see
+#     risk_status.py THRESHOLDS_BY_MODE).
+#
+# `/exchange-accounts` does not yet expose a field that distinguishes Boost
+# from Standard at the same capital — capital alone is ambiguous. Until the
+# backend surfaces a discriminator, `bind` infers the Standard tier by
+# default. Override with `--mode boost-NNk --skip-lookup` when the account
+# is known to be Boost.
 INITIAL_CAPITAL_TO_MODE = {
     1000: "lite",
+    5000: "standard-5k",
     10000: "standard-10k",
-    20000: "standard-20k",
-    30000: "standard-30k",
+    15000: "standard-15k",
+    25000: "standard-25k",
     50000: "standard-50k",
 }
 

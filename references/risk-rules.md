@@ -24,6 +24,32 @@
 | Max orders per second per account | 5 | propdesk API doc (rate limit) |
 | Max leverage in Challenge stage | 10X | aixfunded.com/plans |
 | Max leverage in Payout stage | 20X | aixfunded.com/plans |
+| Inactivity suspension | 30 calendar days without a real fill | 2026-05-14 update |
+
+## Inactivity rule (suspension after 30 days)
+
+The platform suspends any account that goes **30 consecutive calendar days
+without an "effective trading action."** "Effective" means an order that
+actually fills (results in an executed trade). The following do NOT count
+and will NOT reset the clock:
+
+- Logging in or viewing the dashboard
+- Pulling market data (`markets.py board`, `kline`, `metadata`, etc.)
+- Connecting the Agent or running `risk_status.py`
+- Placing an order that never fills (LIMIT that sits open, then is cancelled)
+- Cancelling orders
+- Deposits, withdrawals
+- System-initiated auto-liquidations
+
+Implications for the agent:
+
+- "Watching the market and waiting for a setup" can quietly burn the 30-day
+  budget. Track the last actual fill (see `query.py trades` for the most
+  recent `created_at`); if it has been over 20 days, consider whether to
+  take a small, plan-consistent trade rather than risk suspension.
+- A suspended account cannot trade, request Payout, or release Boost
+  Bonus. The platform may notify the user when the remaining window drops
+  below 10 days.
 
 ## AI reasoning score (agent-mode accounts)
 
