@@ -46,25 +46,30 @@ from _common import (
 
 # Known challenge tiers (initial_capital -> mode).
 #
-# Per the 2026-05-14 parameter update:
+# Per the 2026-05-14 parameter update + the Boost mode MRD:
 #   - Lite stays at $1,000.
-#   - Standard tiers are now $5k / $10k / $15k / $25k / $50k. The previous
-#     $20k / $30k tiers have been retired.
-#   - A new "Boost" track exists at the same five capital sizes ($5k / $10k
-#     / $15k / $25k / $50k). It uses different thresholds (see
-#     risk_status.py THRESHOLDS_BY_MODE).
+#   - Standard tiers: $5k / $10k / $15k / $25k / $50k. The previous
+#     $20k / $30k Standard tiers have been retired.
+#   - Boost tiers: $10k / $20k / $30k / $50k (note: Boost keeps $20k / $30k
+#     even though Standard dropped them, and Boost does NOT have $5k / $15k
+#     / $25k).
 #
-# `/exchange-accounts` does not yet expose a field that distinguishes Boost
-# from Standard at the same capital — capital alone is ambiguous. Until the
-# backend surfaces a discriminator, `bind` infers the Standard tier by
-# default. Override with `--mode boost-NNk --skip-lookup` when the account
-# is known to be Boost.
+# At the $10k / $50k capital points Standard and Boost share a size, so
+# capital alone cannot distinguish them. `/exchange-accounts` does not yet
+# expose a discriminator. Until the backend surfaces one, `bind` defaults
+# to Standard. Override with `--skip-lookup --mode boost-NNk --initial-balance N`
+# when the account is known to be Boost. At capital sizes that are unique
+# to one track (Boost: $20k / $30k; Standard: $5k / $15k / $25k) capital is
+# still ambiguous in code — bind will pick the Standard mode if it exists,
+# else the Boost mode. Mismatches must be corrected with --skip-lookup.
 INITIAL_CAPITAL_TO_MODE = {
     1000: "lite",
     5000: "standard-5k",
     10000: "standard-10k",
     15000: "standard-15k",
+    20000: "boost-20k",
     25000: "standard-25k",
+    30000: "boost-30k",
     50000: "standard-50k",
 }
 

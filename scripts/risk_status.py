@@ -8,22 +8,28 @@ from datetime import datetime, timezone
 from _common import get_active_exchange, http_request, load_config, print_json
 
 
-# Source: aixfunded.com/plans + the 2026-05-14 parameter update.
+# Source: aixfunded.com/plans + the 2026-05-14 parameter update + the
+# Boost mode MRD.
 #
-# Headline changes from the prior version:
+# Headline changes from the pre-2026-05-14 version:
 #   - Lite: profit target 8% -> 12%, max loss 5% -> 3%.
 #   - Standard: $20k / $30k tiers retired; $5k / $15k / $25k added.
-#   - Standard + Boost: 10-day evaluation window REMOVED (no time limit).
+#     10-day evaluation window REMOVED (challenge_period_days=None).
 #   - Payout split: 70% -> 80% (informational; not threshold-based).
-#   - Boost mode is new; threshold-wise it mirrors Standard except for
-#     valid_trading_days_required (7 for Boost too, matching the update).
+#   - Boost: new track with its OWN parameter set — stricter than Standard.
+#     Tiers are $10k / $20k / $30k / $50k (note: $20k / $30k exist on Boost
+#     even though they were retired on Standard, and $5k / $15k / $25k do
+#     NOT exist on Boost).
+#     Thresholds: profit_target=12%, max_loss=5%, daily_drawdown=3%,
+#     valid_trading_days >= 7, challenge_period_days <= 10 (Boost keeps the
+#     10-day deadline that Standard dropped).
 _STANDARD_THRESHOLDS = {
     "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
     "valid_trading_days_required": 7, "challenge_period_days": None,
 }
 _BOOST_THRESHOLDS = {
-    "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-    "valid_trading_days_required": 7, "challenge_period_days": None,
+    "profit_target_pct": 12, "max_loss_pct": 5, "daily_drawdown_pct": 3,
+    "valid_trading_days_required": 7, "challenge_period_days": 10,
 }
 
 THRESHOLDS_BY_MODE = {
@@ -39,10 +45,11 @@ THRESHOLDS_BY_MODE = {
     "standard-15k": dict(_STANDARD_THRESHOLDS),
     "standard-25k": dict(_STANDARD_THRESHOLDS),
     "standard-50k": dict(_STANDARD_THRESHOLDS),
-    "boost-5k":  dict(_BOOST_THRESHOLDS),
+    # Boost tiers: $10k / $20k / $30k / $50k only. There is no $5k / $15k /
+    # $25k Boost product.
     "boost-10k": dict(_BOOST_THRESHOLDS),
-    "boost-15k": dict(_BOOST_THRESHOLDS),
-    "boost-25k": dict(_BOOST_THRESHOLDS),
+    "boost-20k": dict(_BOOST_THRESHOLDS),
+    "boost-30k": dict(_BOOST_THRESHOLDS),
     "boost-50k": dict(_BOOST_THRESHOLDS),
     "payout": {
         "profit_target_pct": None,

@@ -42,15 +42,50 @@ Evaluation details:
 
 ## Boost mode
 
-A new track introduced in the 2026-05-14 update. Threshold-wise it mirrors Standard but is priced separately (priced higher because Boost rewards faster compounding) and uses the lowered "valid trading days >= 7" target. Tier sizes are identical to Standard — $5k / $10k / $15k / $25k / $50k. As with Standard, only the smaller tiers support Agent mode; $25k and $50k are manual-only.
+A separate, stricter challenge track introduced alongside Standard. Boost has its **own** parameters — it does NOT inherit the Standard table.
 
-Threshold table is the same as Standard (10% / 6% / 3% / >= 7 days / unlimited time / 80% split).
+Tier sizes ($10k / $20k / $30k / $50k):
 
-> Note for the skill: `/exchange-accounts` does not currently expose a field
-> distinguishing Boost from Standard at the same capital. Until it does,
-> `config.py bind` infers Standard by default. If you know the account is
-> Boost, override with `python3 config.py bind --account-id <id>
-> --skip-lookup --mode boost-NNk --initial-balance <amount>`.
+| Account size | Profit target | Max loss | Daily drawdown | Min trading days | Time limit | Profit split | Agent mode |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| $10,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
+| $20,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
+| $30,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
+| $50,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | no  |
+
+Important differences vs Standard:
+- Profit target is **12%**, not 10%.
+- Max loss is **< 5%** (account equity must stay above 95% of initial), not 6%.
+- Boost **keeps the 10-day evaluation deadline** that Standard dropped. The 10 days start from the first trade; failing to complete the challenge inside 10 days is a fail.
+- Tier set is different: Boost has $10k / $20k / $30k / $50k. There is no Boost $5k / $15k / $25k. Conversely Standard has $5k / $15k / $25k but not $20k / $30k.
+
+Evaluation cadence is identical to Standard (profit target & daily drawdown at 08:00 UTC; max loss every 5 min or real-time; valid trading day = previous-day volume / previous-day equity > 60%).
+
+Agent mode is available on $10k / $20k / $30k tiers only; $50k is manual-only.
+
+### Boost Bonus (post-Payout reward)
+
+Boost passes the same Payout phase as Standard, **plus** a one-time Boost Bonus tied to the first successful Payout:
+
+- Triggered the first time the trader successfully Payouts on the Boost Payout account.
+- **Bonus total = (first Payout amount paid to the trader) × 20%, capped at $1,000.**
+  Note "first Payout amount paid to the trader" means the trader's split, not the gross profit. With the current 80% Payout split, a first profit of $3,000 yields a trader Payout of $2,400 and a bonus of $480.
+- Released in **five equal tranches**, one per successful Payout. Each tranche posts as a separate ledger entry alongside that Payout's profit share.
+- Per-tranche amount = bonus total ÷ 5.
+- One Boost account = one Boost Bonus. After the 5th tranche posts, the bonus is exhausted.
+- Suspended accounts (see the inactivity rule below) cannot release any remaining tranches.
+
+Worked examples (using the current 80% split):
+- Gross profit $3,000 → trader Payout $2,400 → bonus $480 → released as $96 × 5.
+- Gross profit $10,000 → trader Payout $8,000 → bonus capped at $1,000 → released as $200 × 5.
+
+> Note for the skill: `/exchange-accounts` does not yet expose a field that
+> tells Standard and Boost apart at the $10k / $50k capital sizes (where
+> both tracks have a tier). `config.py bind` defaults to Standard at those
+> sizes. At capital points unique to one track ($5k / $15k / $25k →
+> Standard only; $20k / $30k → Boost only) `bind` picks the only valid
+> mode. To force a different mode, override with `python3 config.py bind
+> --account-id <id> --skip-lookup --mode boost-NNk --initial-balance <amount>`.
 
 ## Leverage caps
 
