@@ -16,20 +16,20 @@ from _common import get_active_exchange, http_request, load_config, print_json
 #   - Standard: $20k / $30k tiers retired; $5k / $15k / $25k added.
 #     10-day evaluation window REMOVED (challenge_period_days=None).
 #   - Payout split: 70% -> 80% (informational; not threshold-based).
-#   - Boost: new track with its OWN parameter set — stricter than Standard.
-#     Tiers are $10k / $20k / $30k / $50k (note: $20k / $30k exist on Boost
-#     even though they were retired on Standard, and $5k / $15k / $25k do
-#     NOT exist on Boost).
+#   - Boost: separate track, stricter profit/loss targets than Standard.
 #     Thresholds: profit_target=12%, max_loss=5%, daily_drawdown=3%,
-#     valid_trading_days >= 7, challenge_period_days <= 10 (Boost keeps the
-#     10-day deadline that Standard dropped).
+#     valid_trading_days >= 7, challenge_period_days = None.
+#     The 2026-05-14 parameter update removed the 10-day completion
+#     deadline for BOTH Standard and Boost ("标准模式和 Boost 模式 …
+#     删除原有 10 天挑战截止日期的限制 → 不限制挑战时间"). An earlier
+#     Boost MRD still listed a 10-day window; that is superseded.
 _STANDARD_THRESHOLDS = {
     "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
     "valid_trading_days_required": 7, "challenge_period_days": None,
 }
 _BOOST_THRESHOLDS = {
     "profit_target_pct": 12, "max_loss_pct": 5, "daily_drawdown_pct": 3,
-    "valid_trading_days_required": 7, "challenge_period_days": 10,
+    "valid_trading_days_required": 7, "challenge_period_days": None,
 }
 
 THRESHOLDS_BY_MODE = {

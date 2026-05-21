@@ -54,16 +54,17 @@ from _common import (
 #                                                          Boost 5% cap)
 #
 # This is the only field /exchange-accounts exposes that distinguishes
-# Standard from Boost — capital alone is ambiguous (both tracks ship $10k
-# and $50k, and live testnet shows a $30k Standard account even though
-# Standard was supposedly retired at $30k). Reading max_drawdown_pct off
-# the server-side risk record reflects what the backend will actually
-# enforce, regardless of what the marketing pages say.
-#
-# Suffix table (which size names exist as recognised modes):
+# Standard from Boost — capital alone cannot tell them apart, since the two
+# tracks share the same tier sizes. (Live testnet has also shown a $30k
+# Standard account even though the marketing tier list dropped $30k, so
+# capital is doubly unreliable.) Reading max_drawdown_pct off the
+# server-side risk record reflects what the backend will actually enforce,
+# regardless of what the marketing pages say.
 
-# Tier suffix table (capital -> NNk). These are the strings that appear
-# after the "standard-" / "boost-" prefix.
+# Tier suffix table (capital -> NNk). These are the strings appended after
+# the "standard-" / "boost-" prefix. Kept broad on purpose: it covers every
+# size the backend has ever issued, so a retired-then-reissued tier still
+# resolves instead of crashing bind.
 _CAPITAL_TO_TIER_SUFFIX = {
     1000:  "1k",
     5000:  "5k",

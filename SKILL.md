@@ -260,9 +260,9 @@ See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 - **Standard thresholds**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days. **No time limit** (the 10-day deadline was removed in the 2026-05-14 update).
   - Tiers: $5k / $10k / $15k / $25k / $50k. The $20k / $30k Standard tiers are retired.
   - Agent mode supported only on $5k / $10k / $15k.
-- **Boost thresholds** (own track, stricter than Standard): profit target **12%**, max loss **5%**, daily drawdown 3%, >= 7 valid trading days, **<= 10-day deadline** (Boost still has a time limit).
-  - Tiers: $10k / $20k / $30k / $50k. Boost does NOT have $5k / $15k / $25k.
-  - Agent mode supported only on $10k / $20k / $30k.
+- **Boost thresholds** (own track, stricter than Standard): profit target **12%**, max loss **5%**, daily drawdown 3%, >= 7 valid trading days. **No time limit** — the 2026-05-14 update removed the 10-day deadline for Boost as well as Standard.
+  - Tiers: $5k / $10k / $15k / $25k / $50k (same as Standard; $20k / $30k retired).
+  - Agent mode supported only on $5k / $10k / $15k.
   - **Boost Bonus**: on first successful Payout, an extra reward = first Payout amount × 20%, capped at $1,000, released in 5 equal tranches across the next 5 Payouts.
 - **Payout profit split**: 80% to trader. Minimum withdrawal $100 (including the first one). The original entry fee is **not** refunded.
 - **Inactivity suspension (30 days)**: an account is suspended after 30 calendar days without an executed fill. Logins, market-data reads, agent connections, placing/cancelling orders that never fill, and auto-liquidations do NOT count as activity. Only a real trade resets the clock.

@@ -42,26 +42,28 @@ Evaluation details:
 
 ## Boost mode
 
-A separate, stricter challenge track introduced alongside Standard. Boost has its **own** parameters — it does NOT inherit the Standard table.
+A separate challenge track with stricter profit/loss targets than Standard. Boost has its **own** profit-target and max-loss values, but shares Standard's tier sizes, time policy, and Payout rules.
 
-Tier sizes ($10k / $20k / $30k / $50k):
+Tier sizes ($5k / $10k / $15k / $25k / $50k — same as Standard; the $20k / $30k tiers were retired):
 
 | Account size | Profit target | Max loss | Daily drawdown | Min trading days | Time limit | Profit split | Agent mode |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| $10,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
-| $20,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
-| $30,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | yes |
-| $50,000 | **12%** | **5%** | 3% | >= 7 days | **<= 10 days** | 80% / 20% | no  |
+| $5,000  | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
+| $10,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
+| $15,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
+| $25,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | no  |
+| $50,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | no  |
 
 Important differences vs Standard:
 - Profit target is **12%**, not 10%.
 - Max loss is **< 5%** (account equity must stay above 95% of initial), not 6%.
-- Boost **keeps the 10-day evaluation deadline** that Standard dropped. The 10 days start from the first trade; failing to complete the challenge inside 10 days is a fail.
-- Tier set is different: Boost has $10k / $20k / $30k / $50k. There is no Boost $5k / $15k / $25k. Conversely Standard has $5k / $15k / $25k but not $20k / $30k.
+- Everything else matches Standard: tier sizes, no time limit (the 10-day deadline was removed for Boost as well as Standard in the 2026-05-14 update), >= 7 valid trading days, 80% Payout split, Agent only on the $5k / $10k / $15k tiers.
+
+> Source conflict note: an earlier Boost MRD listed Boost tiers as $10k / $20k / $30k / $50k and a <= 10-day deadline. The 2026-05-14 parameter update supersedes it — Boost uses the $5k / $10k / $15k / $25k / $50k tier set and has no time limit. The skill does not hardcode the tier-to-mode mapping anyway: `config.py` derives the mode from the live account record (see below).
 
 Evaluation cadence is identical to Standard (profit target & daily drawdown at 08:00 UTC; max loss every 5 min or real-time; valid trading day = previous-day volume / previous-day equity > 60%).
 
-Agent mode is available on $10k / $20k / $30k tiers only; $50k is manual-only.
+Agent mode is available on the $5k / $10k / $15k tiers only; $25k and $50k are manual-only.
 
 ### Boost Bonus (post-Payout reward)
 
