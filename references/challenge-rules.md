@@ -38,7 +38,7 @@ Evaluation details:
 - Daily drawdown: equity drop must not exceed 3% of the previous day's equity (includes unrealized PnL). Resets daily at 08:00 UTC.
 - Valid trading days: a day counts if (cumulative trade volume / previous day total equity) > 60%.
 - Time limit: **removed** — there is no longer a 10-day completion deadline. The challenge can run as long as the account stays active (see the inactivity rule below).
-- AI reasoning score (Agent mode only): > 60.
+- AI reasoning score (Agent mode only): >= 60.
 
 ## Boost mode
 
