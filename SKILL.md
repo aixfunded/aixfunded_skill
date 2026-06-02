@@ -155,9 +155,10 @@ python3 skills/aixfund-trading/scripts/place_order.py \
   --symbol BTC-USDT --side SELL --order-type TAKE_PROFIT_MARKET --size 0.001 \
   --trigger-price 80000 --trigger-type MARK --reduce-only
 
-# Close a position (market reduce-only, enforces 1-min min-hold).
+# Close a position (market reduce-only).
 # --reasoning is required, same as place_order.py (the close is itself an
-# agent-graded order).
+# agent-graded order). The 1-minute minimum hold rule is enforced server-side;
+# this script does NOT gate on hold time, so pace your own closes.
 python3 skills/aixfund-trading/scripts/close_position.py --symbol BTC-USDT --reasoning "..."
 python3 skills/aixfund-trading/scripts/close_position.py --all --reasoning "..."
 

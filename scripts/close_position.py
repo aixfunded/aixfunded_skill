@@ -1,9 +1,13 @@
 """Close an existing position with a market reduce-only order.
 
-- Queries /positions for the given symbol (or all if --all), derives side + size,
-  and sends the opposite-side MARKET reduce-only order.
-- Respects the 1-minute minimum holding time rule: refuses to close a position
-  opened less than 60 seconds ago unless --force is passed.
+Queries /positions for the given symbol (or all if --all), derives side +
+size, and sends the opposite-side MARKET reduce-only order.
+
+Note: the 1-minute minimum holding time is a platform rule enforced
+server-side, not a client check. This script does not attempt to gate
+on hold time — that would be both incomplete (the agent could bypass it
+via place_order.py) and misleading. Track entry timestamps yourself if
+you need to pace closes.
 """
 from __future__ import annotations
 
@@ -12,9 +16,6 @@ import time
 import uuid
 
 from _common import die, http_request, load_config, print_json
-
-
-MIN_HOLD_SECONDS = 60
 
 
 def fetch_positions(cfg, symbol: str | None) -> list[dict]:
@@ -27,54 +28,10 @@ def fetch_positions(cfg, symbol: str | None) -> list[dict]:
     return [p for p in (positions or []) if float(p.get("quantity", 0) or 0) > 0]
 
 
-def _last_entry_ms(cfg, symbol: str, position_side: str) -> int | None:
-    """Return the created_at (ms) of the most recent entry trade for this
-    position, or None if it can't be determined.
-
-    /positions does not expose `created_at`, so we infer entry time from
-    /trades: the latest trade in the same direction as the open position
-    (BUY for LONG, SELL for SHORT). This handles the common
-    open-once-then-close case; for stacked/scaled-in positions it returns
-    the most recent add, which is the conservative choice for the hold
-    guard.
-    """
-    side_to_match = "BUY" if position_side.upper() == "LONG" else "SELL"
-    resp = http_request(
-        "GET", "/trades",
-        query={"exchange_account_id": cfg["exchange_account_id"],
-               "symbol": symbol, "page": 1, "limit": 20},
-        cfg=cfg,
-    )
-    trades = (resp.get("data") or {}).get("trades") or []
-    for t in trades:  # trades come back newest first
-        if (t.get("side") or "").upper() == side_to_match:
-            try:
-                return int(t.get("created_at") or 0)
-            except (TypeError, ValueError):
-                return None
-    return None
-
-
-def close_one(cfg, pos: dict, force: bool, reasoning: str) -> dict:
+def close_one(cfg, pos: dict, reasoning: str) -> dict:
     side = "SELL" if pos["side"].upper() == "LONG" else "BUY"
     size = pos["quantity"]
     symbol = pos["symbol"]
-
-    if not force:
-        opened_at_ms = _last_entry_ms(cfg, symbol, pos["side"])
-        if opened_at_ms:
-            held_s = time.time() - (opened_at_ms / 1000)
-            if held_s < MIN_HOLD_SECONDS:
-                die(
-                    f"Position on {symbol} has been held for only {held_s:.1f}s. "
-                    f"Minimum is {MIN_HOLD_SECONDS}s per challenge rules. "
-                    f"Wait {MIN_HOLD_SECONDS - held_s:.0f}s or pass --force to override."
-                )
-        # If we cannot determine entry time, fail closed: a held position
-        # whose entry trade is older than the 20-trade window we look at
-        # is by definition well past the 60-second guard, so this is rare
-        # in practice and erring on the side of asking for --force is
-        # safer than silently bypassing the rule.
 
     body = {
         "exchange_account_id": cfg["exchange_account_id"],
@@ -107,8 +64,6 @@ def main() -> None:
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--symbol", help="Close the position for this symbol")
     g.add_argument("--all", action="store_true", help="Close every open position")
-    p.add_argument("--force", action="store_true",
-                   help="Skip the 1-minute minimum-hold guard (risk of violation)")
     p.add_argument("--reasoning", required=True,
                    help="REQUIRED: rationale for this close (agent-mode accounts). "
                         "Max 4096 bytes (UTF-8). Make it order-specific.")
@@ -125,7 +80,7 @@ def main() -> None:
     if not positions:
         die("No open position to close." if args.symbol else "No open positions.")
 
-    results = [close_one(cfg, pos, args.force, reasoning_text) for pos in positions]
+    results = [close_one(cfg, pos, reasoning_text) for pos in positions]
     print_json(results if len(results) > 1 else results[0])
 
 
