@@ -155,9 +155,11 @@ python3 skills/aixfund-trading/scripts/place_order.py \
   --symbol BTC-USDT --side SELL --order-type TAKE_PROFIT_MARKET --size 0.001 \
   --trigger-price 80000 --trigger-type MARK --reduce-only
 
-# Close a position (market reduce-only, enforces 1-min min-hold)
-python3 skills/aixfund-trading/scripts/close_position.py --symbol BTC-USDT
-python3 skills/aixfund-trading/scripts/close_position.py --all
+# Close a position (market reduce-only, enforces 1-min min-hold).
+# --reasoning is required, same as place_order.py (the close is itself an
+# agent-graded order).
+python3 skills/aixfund-trading/scripts/close_position.py --symbol BTC-USDT --reasoning "..."
+python3 skills/aixfund-trading/scripts/close_position.py --all --reasoning "..."
 
 # Cancel
 python3 skills/aixfund-trading/scripts/cancel_order.py --order-id 1234 --symbol BTC-USDT
@@ -220,11 +222,11 @@ lifecycle:
 
 ### Cancelling LIMIT entries with attached TP/SL
 
-If you cancel a LIMIT entry that hasn't filled yet, the platform does **not**
-auto-cancel its TP/SL — they linger as orphan PENDING legs. After cancelling
-the entry, also cancel each `take_profit[].order_id` / `stop_loss[].order_id`
-explicitly. (This only matters for un-filled LIMIT entries; once the entry
-is FILLED, closing the position auto-cancels the legs.)
+The backend cascade-cancels the attached TP/SL legs automatically when you
+cancel an unfilled LIMIT entry — no extra cleanup needed. Same thing happens
+when the entry fills and the position is later closed: the legs go to
+`CANCELED` on their own. Don't issue extra cancels for the leg `order_id`s
+returned in `take_profit[]` / `stop_loss[]`.
 
 ### Attached-TP/SL field rules
 

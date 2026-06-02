@@ -148,14 +148,31 @@ def _redact_token(token: str) -> str:
 # ---------------------------------------------------------------------------
 
 def cmd_show(_args) -> None:
-    state = load_state()
-    active_id = state.get("active_account_id")
     out: dict[str, Any] = {
         "skill_state_path": str(STATE_PATH),
         "credentials_dir": str(CREDENTIALS_DIR),
-        "state": state,
         "available_accounts": list_credential_account_ids(),
     }
+
+    # Read state.json directly so a corrupt file does not prevent `show`
+    # from surfacing the available credentials — `show` is the tool of last
+    # resort when troubleshooting bind problems.
+    state: dict[str, Any] = {}
+    if STATE_PATH.exists():
+        try:
+            state = json.loads(STATE_PATH.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            out["state"] = None
+            out["state_error"] = f"{type(e).__name__}: {e}"
+            out["recovery_hint"] = (
+                "Delete state.json and rebind: "
+                "`python3 scripts/config.py bind --account-id <id>`."
+            )
+            print_json(out)
+            return
+
+    out["state"] = state
+    active_id = state.get("active_account_id")
     if active_id:
         try:
             creds = load_credentials(active_id)
