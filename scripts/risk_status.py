@@ -8,29 +8,27 @@ from datetime import datetime, timezone
 from _common import get_active_exchange, http_request, load_config, print_json
 
 
-# Source: aixfunded.com/plans + the 2026-05-14 parameter update + the
-# Boost mode MRD.
+# Source: aixfunded.com/challenge/rules (authoritative) + the 2026-05-14
+# parameter update.
 #
-# Headline changes from the pre-2026-05-14 version:
-#   - Lite: profit target 8% -> 12%, max loss 5% -> 3%.
-#   - Standard: $20k / $30k tiers retired; $5k / $15k / $25k added.
-#     10-day evaluation window REMOVED (challenge_period_days=None).
+# Boost and Standard share the same threshold table at the challenge stage
+# per the live rules page: profit 10%, max-loss 6%, daily-drawdown 3%,
+# valid days >= 7, no time limit. The only difference between the two
+# tracks at challenge stage is the Boost Bonus paid on top of the first
+# Payout (informational, see challenge-rules.md). An earlier internal
+# Boost MRD listed stricter 12% / 5% thresholds; that version is
+# superseded by the public rules page.
+#
+# Headline changes from the pre-2026-05-14 version (Standard):
+#   - 10-day evaluation window REMOVED.
 #   - Payout split: 70% -> 80% (informational; not threshold-based).
-#   - Boost: separate track, stricter profit/loss targets than Standard.
-#     Thresholds: profit_target=12%, max_loss=5%, daily_drawdown=3%,
-#     valid_trading_days >= 7, challenge_period_days = None.
-#     The 2026-05-14 parameter update removed the 10-day completion
-#     deadline for BOTH Standard and Boost ("标准模式和 Boost 模式 …
-#     删除原有 10 天挑战截止日期的限制 → 不限制挑战时间"). An earlier
-#     Boost MRD still listed a 10-day window; that is superseded.
+# And for Lite:
+#   - profit target 8% -> 12%, max loss 5% -> 3%.
 _STANDARD_THRESHOLDS = {
     "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
     "valid_trading_days_required": 7, "challenge_period_days": None,
 }
-_BOOST_THRESHOLDS = {
-    "profit_target_pct": 12, "max_loss_pct": 5, "daily_drawdown_pct": 3,
-    "valid_trading_days_required": 7, "challenge_period_days": None,
-}
+_BOOST_THRESHOLDS = dict(_STANDARD_THRESHOLDS)
 
 THRESHOLDS_BY_MODE = {
     "lite": {
@@ -61,21 +59,32 @@ THRESHOLDS_BY_MODE = {
     "boost-30k": dict(_BOOST_THRESHOLDS),
     "boost-50k": dict(_BOOST_THRESHOLDS),
     "payout": {
+        # Payout-stage thresholds per aixfunded.com/challenge/rules:
+        # profit target is N/A (trader chooses when to request payout);
+        # max-loss 6%, daily-drawdown 3%, valid trading days >= 7. Both
+        # hard limits are "hard violations" — one breach closes the
+        # account, no warning / no second-strike grace.
         "profit_target_pct": None,
         "max_loss_pct": 6, "daily_drawdown_pct": 3,
-        "valid_trading_days_required": None,
+        "valid_trading_days_required": 7,
         "challenge_period_days": None,
     },
 }
 
 RULE_REMINDERS = [
-    "Minimum holding time per position: 1 minute (less is a violation).",
-    "Forbidden: multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.",
-    "Leverage caps: Challenge 10X / Payout 20X.",
+    "Hold time >= 1 minute (server marks sub-minute closes as a soft violation; "
+    "the offending order is rolled back but the account survives).",
+    "Forbidden: multi-account trading, hedging across accounts, quote-delay exploits, "
+    "high-frequency cancel/replace, third-party-managed accounts, manual/Agent boundary bypass.",
+    "Leverage caps: Challenge 10X / Payout 5X (post 2026-05-14 rules page).",
     "Rate limit: max 5 orders per second per account.",
+    "Max-loss and daily-drawdown are HARD violations: one breach fails the challenge "
+    "or recalls the Payout account; no warning, no waiver.",
     "Inactivity: account is suspended after 30 calendar days without a real fill. "
     "Logins, market data, agent connect, placing/cancelling orders, deposits and "
     "auto-liquidations do NOT count as activity — only an executed trade resets the clock.",
+    "Exploit duty: if you spot a backend bug / mispricing / unintended behavior, "
+    "report it. Profits from exploiting it can be clawed back.",
 ]
 
 

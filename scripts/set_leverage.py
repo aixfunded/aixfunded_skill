@@ -1,8 +1,8 @@
 """POST /setLeverage.
 
-Caps based on config.mode:
-  Challenge stage (lite / standard-*): 10X
-  Payout stage (payout):               20X
+Caps based on config.mode (source: aixfunded.com/challenge/rules):
+  Challenge stage (lite / standard-* / boost-*): 10X
+  Payout stage (payout):                          5X
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from _common import http_request, load_config, print_json, die
 
 
 CHALLENGE_MAX_LEVERAGE = 10
-PAYOUT_MAX_LEVERAGE = 20
+PAYOUT_MAX_LEVERAGE = 5
 
 
 def main() -> None:

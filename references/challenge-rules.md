@@ -1,8 +1,8 @@
-# Challenge rules (aixfunded.com/plans is the source of truth)
+# Challenge rules (aixfunded.com/challenge/rules is the source of truth)
 
-> Where this document and the PRD differ, follow this document. Source: https://aixfunded.com/plans.
-> Payout-stage details that are not on the public plans page fall back to the PRD (marked "PRD source").
-> Last refreshed against the 2026-05-14 parameter update.
+> Source: https://aixfunded.com/challenge/rules. Where this document and
+> the PRD differ, follow this document. Last refreshed against the live
+> rules page on 2026-06-02.
 
 ## Lite mode
 
@@ -42,28 +42,27 @@ Evaluation details:
 
 ## Boost mode
 
-A separate challenge track with stricter profit/loss targets than Standard. Boost has its **own** profit-target and max-loss values, but shares Standard's tier sizes, time policy, and Payout rules.
+Per aixfunded.com/challenge/rules, Boost shares the **same challenge-stage
+threshold table as Standard** (profit 10%, max-loss 6%, daily-drawdown 3%,
+valid days >= 7, no time limit). Its differentiator is the Boost Bonus
+paid on top of the first successful Payout (see "Boost Bonus" below);
+Boost is more expensive at purchase to fund that bonus.
 
-Tier sizes ($5k / $10k / $15k / $25k / $50k — same as Standard; the $20k / $30k tiers were retired):
+Tier sizes match Standard ($5k / $10k / $15k / $25k / $50k). Agent mode
+is supported only on the smaller tiers; $25k and $50k are manual-only.
 
 | Account size | Profit target | Max loss | Daily drawdown | Min trading days | Time limit | Profit split | Agent mode |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| $5,000  | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
-| $10,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
-| $15,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | yes |
-| $25,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | no  |
-| $50,000 | **12%** | **5%** | 3% | >= 7 days | unlimited | 80% / 20% | no  |
+| $5,000  | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $10,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $15,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $25,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
+| $50,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
 
-Important differences vs Standard:
-- Profit target is **12%**, not 10%.
-- Max loss is **< 5%** (account equity must stay above 95% of initial), not 6%.
-- Everything else matches Standard: tier sizes, no time limit (the 10-day deadline was removed for Boost as well as Standard in the 2026-05-14 update), >= 7 valid trading days, 80% Payout split, Agent only on the $5k / $10k / $15k tiers.
-
-> Source conflict note: an earlier Boost MRD listed Boost tiers as $10k / $20k / $30k / $50k and a <= 10-day deadline. The 2026-05-14 parameter update supersedes it — Boost uses the $5k / $10k / $15k / $25k / $50k tier set and has no time limit. The skill does not hardcode the tier-to-mode mapping anyway: `config.py` derives the mode from the live account record (see below).
-
-Evaluation cadence is identical to Standard (profit target & daily drawdown at 08:00 UTC; max loss every 5 min or real-time; valid trading day = previous-day volume / previous-day equity > 60%).
-
-Agent mode is available on the $5k / $10k / $15k tiers only; $25k and $50k are manual-only.
+> Source-history note: an earlier internal Boost MRD listed stricter 12%
+> profit / 5% max-loss targets and a 10-day deadline. The public rules
+> page now lists Boost with the same numbers as Standard — that's the
+> authoritative version.
 
 ### Boost Bonus (post-Payout reward)
 
@@ -92,29 +91,62 @@ Worked examples (using the current 80% split):
 ## Leverage caps
 
 - Challenge stage (Lite / Standard / Boost): **max 10X**
-- Payout stage: **max 20X**
+- Payout stage: **max 5X** (per aixfunded.com/challenge/rules)
 
-## Payout stage (PRD source + 2026-05-14 update)
+## Payout stage
 
-After passing Standard or Boost, the trader receives a Payout simulated account.
+After passing Standard or Boost, the trader may receive a Payout simulated
+account (subject to platform review and approval — passing the challenge
+does not guarantee Payout access).
 
-Risk thresholds (real-time):
-- Cumulative max loss < 6% (account is recalled at 6%).
-- Daily max drawdown < 3% (1 trigger per week is a warning; 2 triggers recall the account and revoke Payout eligibility).
-- Valid trading days: at least 60% of the period (not a violation, but affects withdrawals).
-- Best trading day profit ratio < 50% (not a violation, but affects withdrawals).
+Risk thresholds (real-time, **hard violations** — one breach closes the
+account; no warning, no second strike):
 
-Profit split and withdrawals:
-- **80%** to the trader (raised from 70% in the 2026-05-14 update).
-- Distribution dates: 5th / 15th / 25th of each month.
-- **Minimum withdrawal: $100, including the first one.** (Previously the first withdrawal was exempt; now every payout request must be >= $100.)
-- **Challenge fee is NOT refunded.** The previous "first payout refunds the original entry fee" mechanic was removed in the 2026-05-14 update.
+- Cumulative max loss < 6%.
+- Daily max drawdown < 3%.
+
+Soft conditions (do not fail the account, but block this payout request):
+
+- Valid trading days: >= 7 cumulative valid days. Not satisfying this
+  blocks the payout request but the account survives.
+- Best trading day profit ratio < 50% — best day's profit divided by
+  total profit-day profit in the current cycle. Each successful payout
+  resets the cycle.
+- Minimum profit per payout request: 100 USDT. Below this the request
+  is rejected; keep trading until the threshold is met.
+
+Profit split and timing:
+
+- **80%** to the trader.
+- **Payout request windows**: 5th / 15th / 25th of each month. The very
+  first payout request is exempt from this window — the trader can
+  submit as soon as the threshold conditions are met.
+- **Balance withdrawal processing windows**: 8th / 18th / 28th of each
+  month. Approved payout amounts land in the AiXFunded account balance;
+  the trader then submits a withdrawal request, processed on these dates.
+- **Minimum withdrawal: 100 USDT, including the first one.**
+- **Challenge fee is NOT refunded** at any payout (the older "first
+  payout refunds the entry fee" mechanic was removed).
+- **Awards can be clawed back.** If the platform later finds rule
+  violations, fraud, abuse, duplicate accounts, or risk-system errors,
+  it can cancel, claw back, or adjust payouts and Boost Bonuses.
 
 ## Account-quota mechanism (front-end / informational)
 
-The platform caps every user's combined simulated capital at **$200,000** across all live Payout, pending-Payout, and active-challenge accounts. Past this cap, buying additional challenges is blocked. This is enforced at challenge purchase on the website — the trading API is not affected. Released when an account fails, expires, or is refunded; held when an account is under risk review.
+The platform caps the combined simulated capital across every account
+belonging to the same **Risk Entity** at **$200,000**. A Risk Entity is
+the platform's grouping of accounts believed to be controlled by the
+same real person or team, judged from device / network / KYC / wallet /
+payment-source / behavioral signals — NOT just same user-id.
 
-The skill does not need to do anything with this rule, but it is the answer to "why can't I buy a $50k challenge right now?"
+Quota is occupied by: active challenges, accounts pending Payout,
+issued Payout accounts, accounts under risk review, and frozen accounts.
+Quota is released by: failed challenges, voluntary closures, inactivity
+suspensions, and revoked-for-violation closures.
+
+This is enforced at challenge purchase on the website; the trading API
+is not affected. The skill does not need to do anything with this rule,
+but it is the answer to "why can't I buy a $50k challenge right now?"
 
 ## Inactivity rule (skill-relevant)
 

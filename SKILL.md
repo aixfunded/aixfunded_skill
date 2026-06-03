@@ -255,20 +255,18 @@ between the relevant top-of-book price and mark to the user.
 
 See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 
-- **Hold time >= 1 minute** (anything less is a violation).
+- **Hold time >= 1 minute** — sub-minute closes are a soft violation; the trade is rolled back, the account survives.
+- **Max-loss and daily-drawdown are HARD violations** — one breach fails the challenge or recalls the Payout account. No warning, no waiver.
 - **Max 5 orders per second per account** (rate limit).
-- **Leverage caps**: Challenge 10X / Payout 20X.
-- **Forbidden**: multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.
-- **Lite mode thresholds** (2026-05-14 update): profit target 12%, max loss 3%. No time limit. Tier: $1k only.
-- **Standard thresholds**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days. **No time limit** (the 10-day deadline was removed in the 2026-05-14 update).
-  - Tiers: $5k / $10k / $15k / $25k / $50k. The $20k / $30k Standard tiers are retired.
-  - Agent mode supported only on $5k / $10k / $15k.
-- **Boost thresholds** (own track, stricter than Standard): profit target **12%**, max loss **5%**, daily drawdown 3%, >= 7 valid trading days. **No time limit** — the 2026-05-14 update removed the 10-day deadline for Boost as well as Standard.
-  - Tiers: $5k / $10k / $15k / $25k / $50k (same as Standard; $20k / $30k retired).
-  - Agent mode supported only on $5k / $10k / $15k.
-  - **Boost Bonus**: on first successful Payout, an extra reward = first Payout amount × 20%, capped at $1,000, released in 5 equal tranches across the next 5 Payouts.
-- **Payout profit split**: 80% to trader. Minimum withdrawal $100 (including the first one). The original entry fee is **not** refunded.
+- **Leverage caps**: Challenge 10X / **Payout 5X** (per the live rules page).
+- **Forbidden**: multi-account trading, hedging across accounts, quote-latency / mispricing exploits, high-frequency cancel/replace, third-party-managed accounts, manual/Agent boundary bypass.
+- **Lite mode thresholds**: profit target 12%, max loss 3%, no daily drawdown, no time limit, no min trading days. Tier: $1k only. Reward on pass: $50.
+- **Standard / Boost thresholds (challenge stage, same numbers)**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, no time limit.
+  - Tiers: $5k / $10k / $15k / $25k / $50k. Agent mode supported on $5k / $10k / $15k; $25k / $50k are manual-only.
+  - **Boost Bonus**: paid only on the Boost track, on the first successful Payout — bonus = first Payout amount × 20%, capped at $1,000, released as 5 equal tranches across the next 5 Payouts.
+- **Payout stage**: 80% to trader; min withdrawal 100 USDT (first payout included); challenge fee is **not** refunded; payout request windows 5/15/25 (first request exempt); balance withdrawal windows 8/18/28; awards can be clawed back on later-discovered violations.
 - **Inactivity suspension (30 days)**: an account is suspended after 30 calendar days without an executed fill. Logins, market-data reads, agent connections, placing/cancelling orders that never fill, and auto-liquidations do NOT count as activity. Only a real trade resets the clock.
+- **Exploit duty**: if you notice a backend bug (mispriced fills, missing fees, stale data), report it instead of trading on it. Profits from exploiting it are clawback-eligible.
 - **AI reasoning score (REQUIRED for agent-mode accounts)**: every order
   must carry a fresh, order-specific `--reasoning` string. The server
   **requires** this field on agent-mode accounts — missing or empty triggers
@@ -301,6 +299,6 @@ The token and `exchange_account_id` always come from `~/.aixfund/config.json`.
 - `references/api-http.md` - HTTP API reference + curl examples.
 - `references/api-websocket.md` - WebSocket protocol (no script wrapper in MVP).
 - `references/data-types.md` - field definitions, order statuses, error codes.
-- `references/challenge-rules.md` - challenge rules (aixfunded.com/plans).
+- `references/challenge-rules.md` - challenge rules (aixfunded.com/challenge/rules).
 - `references/risk-rules.md` - violation list + agent guidance.
 - `scripts/README.md` - full script command reference.

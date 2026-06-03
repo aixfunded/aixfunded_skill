@@ -40,7 +40,7 @@ The same `bind` command also handles account switching later (*"Switch binding, 
 | `cancel_order.py` | Cancel single or all open orders. |
 | `query.py` | Query `positions`, `balance`, `open-orders` (entry orders include embedded `take_profit[]` / `stop_loss[]` arrays for attached TP/SL), `condition-orders`, `history-orders`, `trades`, `pnl-closed`, `leverage`. |
 | `markets.py` | Public market data: board, kline, orderbook, trades, contract summary. |
-| `set_leverage.py` | Adjust leverage (respecting per-mode caps: Challenge 10x, Payout 20x). |
+| `set_leverage.py` | Adjust leverage (respecting per-mode caps: Challenge 10x, Payout 5x). |
 | `risk_status.py` | Unified risk snapshot: balance + open positions + per-mode thresholds + challenge period. |
 | `auth_check.py` | Validate token and list authorized accounts. |
 | `api.py` | Generic HTTP fallback for any endpoint not wrapped above. |
@@ -60,7 +60,7 @@ One skill install binds to one account. To operate multiple accounts in parallel
 
 - **Minimum hold time:** 1 minute per position.
 - **Rate limit:** max 5 orders per second per account.
-- **Leverage caps:** Challenge 10x, Payout 20x.
+- **Leverage caps:** Challenge 10x, Payout 5x.
 - **Forbidden:** multi-account opening, multi-account hedging, quote-delay exploits, high-frequency cancel/replace.
 - **AI reasoning score (agent-mode accounts):** every order MUST carry a fresh, order-specific `--reasoning` string (<= 4096 bytes UTF-8). The server rejects missing / over-limit values with `INVALID_ARGUMENT`. Sampled reasoning is LLM-graded; baseline 60, ±40 from grading, must stay >= 60. Templated / duplicate text incurs a -5 to -20 penalty per instance.
 - **Challenge clock:** starts automatically on the first successful order (stamped from the server `Date` header, UTC).

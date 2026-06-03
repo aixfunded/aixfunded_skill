@@ -48,18 +48,22 @@ from _common import (
 #
 #   - account_phase == "PAYOUT"          -> payout
 #   - initial_capital == 1000            -> lite
-#   - risk.max_drawdown_pct == 6         -> standard-NNk   (matches the
-#                                                          Standard 6% cap)
-#   - risk.max_drawdown_pct == 5         -> boost-NNk      (matches the
-#                                                          Boost 5% cap)
+#   - risk.max_drawdown_pct == 6         -> standard-NNk
+#   - risk.max_drawdown_pct == 5         -> boost-NNk
 #
-# This is the only field /exchange-accounts exposes that distinguishes
-# Standard from Boost — capital alone cannot tell them apart, since the two
-# tracks share the same tier sizes. (Live testnet has also shown a $30k
-# Standard account even though the marketing tier list dropped $30k, so
-# capital is doubly unreliable.) Reading max_drawdown_pct off the
-# server-side risk record reflects what the backend will actually enforce,
-# regardless of what the marketing pages say.
+# Note on the 5 vs 6 split: aixfunded.com/challenge/rules lists both
+# Standard and Boost at max-loss 6% on the public page. The backend
+# `risk.max_drawdown_pct` field has nevertheless been observed to return
+# different values for the two tracks in practice, which we use as the
+# discriminator below. If that ever changes and Boost starts returning 6,
+# bind will classify Boost accounts as standard-NNk. That mis-label has
+# no impact on agent decisions today because the threshold tables are
+# identical at challenge stage (the only Boost-specific perk is the
+# post-Payout bonus, which is informational, not threshold-based).
+# Capital alone cannot tell them apart, since the two tracks share the
+# same tier sizes. (Live testnet has also shown a $30k Standard account
+# even though the marketing tier list dropped $30k, so capital is doubly
+# unreliable.)
 
 # Tier suffix table (capital -> NNk). These are the strings appended after
 # the "standard-" / "boost-" prefix. Kept broad on purpose: it covers every

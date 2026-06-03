@@ -1,30 +1,46 @@
-# Risk and violation rules (PRD source)
+# Risk and violation rules
 
-> Applies to every account regardless of mode / stage / size. On a confirmed violation:
-> - Challenge accounts: challenge marked failed.
-> - Payout accounts: account recalled.
-> - Severe cases: email blacklisted.
+> Source: aixfunded.com/challenge/rules. Applies to every account
+> regardless of mode / stage / size.
+
+## Violation severity (per the live rules page)
+
+The platform sorts violations into two tiers:
+
+- **Soft violation** — the offending trade is rolled back (e.g. a sub-minute
+  close is cancelled and the position is restored), but the account stays
+  alive and can keep trading.
+- **Hard violation** — max-loss or daily-drawdown breach. Challenge fails
+  immediately; Payout account is recalled immediately. No warning, no
+  human waiver, no second strike.
+
+On either tier the platform can additionally claw back rewards, payouts,
+or Boost Bonuses already credited, and may blacklist the email / KYC
+identity / Risk Entity for repeat or severe abuse.
 
 ## Forbidden behavior
 
 | # | Behavior | Notes |
 | --- | --- | --- |
-| 1 | Opening positions on multiple accounts | Trading the same flow across multiple challenge / Payout accounts simultaneously. |
-| 2 | Cross-account hedging | Opening opposite-direction positions on the same symbol across accounts. |
-| 3 | Exploiting quote latency | Using stale-quote arbitrage tactics. |
+| 1 | Multi-account trading | Holding positions on two or more accounts at the same time. |
+| 2 | Cross-account hedging / mirroring / copy-trading | Opposite or near-identical positions across accounts. |
+| 3 | Exploiting quote latency / stale prices / mispricing | Strategies that depend on speed, latency, data-feed glitches, or known bugs. |
 | 4 | High-frequency cancel/replace | Spamming orders/cancels. |
-| 5 | Holding too briefly | Position held < 1 minute. |
-| 6 | Other cheating | Platform reserves judgment. |
+| 5 | Holding too briefly | Position held < 1 minute (soft violation — the close is rolled back). |
+| 6 | Unauthorized automation / third-party account management | Bots, scripts, copy-trade tools, signal services, or letting someone else trade your account. |
+| 7 | Manual / Agent boundary bypass | A manual account must not be driven via API, and an Agent account must not be driven via the web UI. The choice is locked in at purchase. |
+| 8 | Exploiting backend bugs | Any unintended platform behavior (mispricing, stale data, calculation bug) must be reported, not exploited. |
+| 9 | Identity / quota evasion | Duplicate accounts, synthetic identity, VPN/VPS to fake jurisdiction, sharing API keys across accounts. |
 
 ## Critical thresholds (agent must internalize)
 
 | Threshold | Value | Source |
 | --- | --- | --- |
-| Min holding time per position | >= 1 minute | PRD |
+| Min holding time per position | >= 1 minute (soft-violation tier) | aixfunded.com/challenge/rules |
 | Max orders per second per account | 5 | propdesk API doc (rate limit) |
-| Max leverage in Challenge stage | 10X | aixfunded.com/plans |
-| Max leverage in Payout stage | 20X | aixfunded.com/plans |
-| Inactivity suspension | 30 calendar days without a real fill | 2026-05-14 update |
+| Max leverage in Challenge stage | 10X | aixfunded.com/challenge/rules |
+| Max leverage in Payout stage | 5X | aixfunded.com/challenge/rules |
+| Inactivity suspension | 30 calendar days without a real fill | aixfunded.com/challenge/rules |
 
 ## Inactivity rule (suspension after 30 days)
 
@@ -91,6 +107,15 @@ High-quality example (from platform docs):
 2. **Order pacing:** when batching, sleep >= 250 ms between orders to stay under the 5/s limit.
 3. **Same-direction only:** never open opposing positions on the same symbol within a single account (avoid hedge classification).
 4. **Live quotes:** rely on `/markets/orderbook` snapshots, not stale ticker data.
-5. **Risk-first:** before opening new exposure, run `risk_status.py`. If max-loss usage is >= 5%, stop opening new positions.
-6. **Reason every trade:** on every `place_order.py` call, pass a fresh
-   order-specific `--reasoning` string (see AI reasoning score section above).
+5. **Risk-first:** before opening new exposure, run `risk_status.py`.
+   Stop opening new positions when max-loss usage is within 1 percentage
+   point of the limit (i.e. >= 5% of equity drawn on a 6% cap; >= 2% on a
+   3% Lite cap). Max-loss and daily-drawdown are hard violations — one
+   breach ends the account.
+6. **Reason every trade:** on every `place_order.py` / `close_position.py`
+   call, pass a fresh order-specific `--reasoning` string (see AI
+   reasoning score section above).
+7. **Report, don't exploit:** if you notice a backend bug or unintended
+   behavior (mispriced fills, missing fees, stale data, off-by-one in
+   a margin calc), stop trading and report it. Profits from exploiting
+   it are clawback-eligible per the rules.

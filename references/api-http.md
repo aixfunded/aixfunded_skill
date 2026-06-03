@@ -147,7 +147,7 @@ curl -X POST $BASE/setLeverage \
   -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDT","leverage":5,"margin_mode":"CROSS"}'
 ```
 
-> Caps: Challenge 10X / Payout 20X.
+> Caps: Challenge 10X / Payout 5X.
 
 ---
 
