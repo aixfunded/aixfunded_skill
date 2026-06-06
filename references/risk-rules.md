@@ -40,6 +40,10 @@ identity / Risk Entity for repeat or severe abuse.
 | Max orders per second per account | 5 | propdesk API doc (rate limit) |
 | Max leverage in Challenge stage | 10X | aixfunded.com/challenge/rules |
 | Max leverage in Payout stage | 5X | aixfunded.com/challenge/rules |
+
+> ⚠️ **Payout is capped at 5X.** Ordering above 5X on a Payout account is
+> rejected with an error. (The `/exchange-accounts` `max_leverage` field may
+> show `20` — ignore it; the cap is 5X.)
 | Inactivity suspension | 30 calendar days without a real fill | aixfunded.com/challenge/rules |
 
 ## Inactivity rule (suspension after 30 days)

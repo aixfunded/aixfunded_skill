@@ -81,6 +81,7 @@ python3 config.py bootstrap --token "af_..."
 | History orders | `python3 query.py history-orders [--symbol ...] [--page 1] [--limit 20]` |
 | Trades | `python3 query.py trades` |
 | Closed PnL | `python3 query.py pnl-closed` |
+| Challenge progress | `python3 query.py challenge` (merged: status + equity + risk + effective trading days) |
 | Market board | `python3 markets.py board` |
 | Metadata (active_exchange + symbols) | `python3 markets.py metadata` |
 | Kline | `python3 markets.py kline --symbol BTC-USDT --timeframe 1m --limit 100` |

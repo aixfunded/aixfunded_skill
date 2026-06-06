@@ -24,28 +24,23 @@ install the skill twice (each copy has its own `state.json`).
 
 ## Active exchange is runtime-resolved (post 2026-05-15)
 
-The propdesk backend now picks the "active exchange" at runtime via Nacos
-config. Currently `binance` on testnet; previously `apex`. Do NOT hardcode
-the name anywhere — instead:
+The backend picks the active exchange at runtime (currently `binance` on
+testnet; previously `apex`). **You normally don't need to deal with it:**
+`markets.py` subcommands default `--exchange` to the active value, and
+`config.py bind` / `risk_status.py` cache it in `state.json`. Just don't
+hardcode an exchange name. To read it explicitly, use `markets.py metadata`
+(`data.active_exchange`).
 
-- Read it from `state.json` (`active_exchange`, cached by `config.py bind`
-  and `risk_status.py`), or
-- Call `markets.py metadata` and use `data.active_exchange`.
+Details, only if relevant:
 
-`markets.py` subcommands default `--exchange` to the active value, so most
-agent calls don't need to pass it at all. Responses always carry the active
-name in `data.exchange` (HTTP and WS); if you see a value that differs from
-your cached one, the backend has swapped — refresh by reading metadata.
-
-The server also tolerates the legacy `exchange=apex` input and silently
-maps it to the active hub, so old hard-coded clients keep working — but
-prefer the active name.
-
-**Data-reconciliation caveat:** historical orders / trades / positions
-returned by query endpoints get their `exchange` field rewritten to the
-current active name at query time. It is NOT the venue the order originally
-executed on. For after-the-fact reconciliation use `created_at` timestamps
-plus the human-maintained swap timeline, not the `exchange` field.
+- Responses always carry the active name in `data.exchange`. If it differs
+  from your cached value, the backend has swapped — re-read metadata.
+- The server accepts a stale `exchange=apex` and maps it to the active hub,
+  so old clients keep working.
+- **Reconciliation caveat:** query endpoints rewrite the `exchange` field on
+  historical orders / trades / positions to the *current* active name, not
+  the venue they executed on. For after-the-fact reconciliation use
+  `created_at` + the swap timeline, not the `exchange` field.
 
 **Available symbols are exchange-dependent.** Examples below use
 `BTC-USDT` because the current active hub is binance, which quotes against
@@ -171,6 +166,7 @@ python3 skills/aixfund-trading/scripts/query.py positions
 python3 skills/aixfund-trading/scripts/query.py balance
 python3 skills/aixfund-trading/scripts/query.py open-orders         # regular LIMIT/MARKET only
 python3 skills/aixfund-trading/scripts/query.py condition-orders    # TP/SL/STOP trigger orders
+python3 skills/aixfund-trading/scripts/query.py challenge           # merged assessment view (status + equity + risk + effective trading days)
 
 # Market data
 python3 skills/aixfund-trading/scripts/markets.py board
@@ -258,7 +254,8 @@ See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 - **Hold time >= 1 minute** — sub-minute closes are a soft violation; the trade is rolled back, the account survives.
 - **Max-loss and daily-drawdown are HARD violations** — one breach fails the challenge or recalls the Payout account. No warning, no waiver.
 - **Max 5 orders per second per account** (rate limit).
-- **Leverage caps**: Challenge 10X / **Payout 5X** (per the live rules page).
+- **Leverage caps**: Challenge 10X / **Payout 5X**. Payout is capped at 5X —
+  ordering above 5X is rejected with an error.
 - **Forbidden**: multi-account trading, hedging across accounts, quote-latency / mispricing exploits, high-frequency cancel/replace, third-party-managed accounts, manual/Agent boundary bypass.
 - **Lite mode thresholds**: profit target 12%, max loss 3%, no daily drawdown, no time limit, no min trading days. Tier: $1k only. Reward on pass: $50.
 - **Standard / Boost thresholds (challenge stage, same numbers)**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, no time limit.

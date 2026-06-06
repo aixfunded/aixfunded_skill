@@ -147,7 +147,8 @@ curl -X POST $BASE/setLeverage \
   -d '{"exchange_account_id":"'$ACCT'","symbol":"BTC-USDT","leverage":5,"margin_mode":"CROSS"}'
 ```
 
-> Caps: Challenge 10X / Payout 5X.
+> Caps: Challenge 10X / Payout 5X. Ordering above the cap is rejected with an
+> error. (`max_leverage` may show `20` on Payout; ignore it — the cap is 5X.)
 
 ---
 
@@ -159,6 +160,8 @@ curl -X POST $BASE/setLeverage \
 curl "$BASE/positions?exchange_account_id=$ACCT&symbol=BTC-USDT" \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+- `funding_fee`: this position's **cumulative settled funding-fee total** (sum of settled `paper_funding_records` since the position's `created_at`). **Positive = paid by the user, negative = received by the user** (same sign convention as `/pnl/closed`). Returns `"0"` when there are no records.
 
 ### GET /portfolio/balances
 
@@ -202,12 +205,16 @@ curl "$BASE/historyOrders?exchange_account_id=$ACCT&page=1&limit=20" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+- `execution_type`: currently fixed at `"Trade"`; will return the real value once Maker/Taker distinction is supported.
+
 ### GET /trades
 
 ```bash
 curl "$BASE/trades?exchange_account_id=$ACCT&page=1&limit=20" \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+- `execution_type`: currently fixed at `"Trade"`; will return the real value once Maker/Taker distinction is supported.
 
 ### GET /pnl/closed
 
@@ -216,11 +223,138 @@ curl "$BASE/pnl/closed?exchange_account_id=$ACCT&start_time=1712534400000000&end
   -H "Authorization: Bearer $TOKEN"
 ```
 
+- `side`: **opening direction** — `"BUY"` = LONG / `"SELL"` = SHORT (the entry order's side).
+- `leverage` (int): the **historical leverage at the moment of closing** (snapshot written at close, after any tier-based auto step-down) — NOT the account's current `leverage` setting; a later `setLeverage` does not change this value. Historical fills from before this field existed fall back to the current `leverage_settings` value, so the field **never returns 0**.
+
 ### GET /exchange-accounts
 
 ```bash
 curl $BASE/exchange-accounts -H "Authorization: Bearer $TOKEN"
 ```
+
+Each account carries a `risk` sub-object with the assessment / risk-control data. Key fields:
+
+| Field | Notes |
+| --- | --- |
+| `status` | `"active"` (running) / `"disabled"` (breached, not recoverable) |
+| `alerted` | Whether the alert threshold has been crossed |
+| `max_drawdown_pct` | Max-cumulative-loss red line (percent); the threshold for `max_cumulative_loss_pct` |
+| `alert_drawdown_pct` | Alert threshold (percent); also against `max_cumulative_loss_pct` |
+| `max_daily_drawdown_pct` | Daily-drawdown threshold (percent) |
+| `current_equity` | Current equity (live balance + unrealized PnL) |
+| `baseline_equity` | Baseline equity (= `initial_capital`) |
+| `peak_equity` | Historical peak equity |
+| `trough_equity` | Historical trough equity (real-time low including floating loss) |
+| `current_loss` | Current instantaneous cumulative loss (USDT) = `max(0, baseline − current)`; `"0"` when in profit |
+| `max_cumulative_loss_pct` | **Max cumulative loss rate** (percent) = `(baseline − min(trough, current)) / baseline × 100`. **Same basis as `max_drawdown_pct` / `alert_drawdown_pct` — directly comparable.** `"0"` while the account is in profit. **The "max loss control" card MUST use this field.** |
+| `current_drawdown_pct` | **Drawdown from the historical peak** (percent) = `(peak − current) / peak × 100`. ⚠️ This is the pullback relative to `peak_equity`, **NOT** cumulative loss: an account that profited first then pulled back inflates this value even without a real loss. **NOT directly comparable to the `max_drawdown_pct` red line.** |
+| `last_daily_drawdown_pct` | **Previous-day drawdown rate** (percent), the value the daily_drawdown worker persists once per day at 08:00 UTC. Always ≤ 0. **Same basis as `max_daily_drawdown_pct` — directly comparable** (breach: `last < -max`). `"0"` = flat / in profit / first day or worker not yet run. ⚠️ 24h discrete sample, refreshed only at 08:00 UTC, NOT an intraday real-time value. |
+
+> Render the "max loss control" card with `max_cumulative_loss_pct`, NOT `current_drawdown_pct`.
+
+### GET /exchange-accounts/:id/challenge
+
+Returns one exchange account's **full assessment progress** in a single call: merges the aixfund business status + equity + risk-control data (three sources combined). Use this for the agent / front-end "challenge progress" card instead of separately hitting aixfund and `/exchange-accounts`.
+
+```bash
+# NOTE: account id is a PATH parameter (:id), NOT a ?exchange_account_id= query param.
+curl "$BASE/exchange-accounts/$ACCT/challenge" -H "Authorization: Bearer $TOKEN"
+```
+
+- **Auth**: Bearer token; `:id` must be ∈ the token's `allowed_account_ids`, otherwise 403.
+- ⚠️ **This is the only endpoint where the account id is a path parameter** (`:id`), unlike every other endpoint which takes `?exchange_account_id=`.
+
+Response (`200 OK`):
+
+```json
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "exchange_account_id": "123456789",
+    "aixfund": {
+      "account_phase": "challenge",
+      "trading_mode": "agent",
+      "is_agent": true,
+      "is_challenge": true,
+      "program_id": "standard_5k",
+      "status": "active",
+      "agent_llm_score": "72.5",
+      "agent_llm_score_at_ms": 1780560000000,
+      "assessment_start_at_ms": 1780453800000,
+      "last_effective_trade_at_ms": 1780557300000,
+      "profit_target_pct": "12",
+      "min_trading_days": 7,
+      "effective_trading_days_so_far": 1
+    },
+    "equity": {
+      "initial_capital": "5000",
+      "baseline_equity": "5000",
+      "current_equity": "5631.45",
+      "current_profit": "631.45",
+      "current_profit_pct": "12.629"
+    },
+    "risk": {
+      "max_drawdown_pct": "5",
+      "current_drawdown_pct": "0.35",
+      "max_daily_drawdown_pct": "3",
+      "last_daily_drawdown_pct": "0",
+      "max_cumulative_loss_pct": "0",
+      "min_holding_seconds": 60
+    }
+  }
+}
+```
+
+`aixfund` sub-object (from the aixfund `Verify` response's `account_challenges[exchange_account_id == :id]`):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `account_phase` | string | `"challenge"` / `"payout"` |
+| `trading_mode` | string | `"manual"` / `"agent"` |
+| `is_agent` | bool | Convenience for `trading_mode == "agent"` |
+| `is_challenge` | bool | Convenience for `account_phase == "challenge"` |
+| `program_id` | string | Program ID, e.g. `"standard_5k"` / `"boost_5k"` |
+| `status` | string | Business status: `"active"` / `"passed"` / `"failed"` / `"suspended_breach"` / `"suspended_fail"` / `"inactive"`. Treat unknown values conservatively |
+| `agent_llm_score` | string | Latest agent reasoning score (e.g. `"72.5"`); `""` if non-agent or unscored |
+| `agent_llm_score_at_ms` | int64 | Score time, Unix ms; `0` if absent |
+| `assessment_start_at_ms` | int64 | Challenge assessment start (usually first effective fill), Unix ms; `0` if absent |
+| `last_effective_trade_at_ms` | int64 | Latest effective fill time, Unix ms; `0` if absent |
+| `profit_target_pct` | string | Program profit-target rate (percent string, e.g. `"12"`). **Pending aixfund field expansion — currently may return `""`.** |
+| `min_trading_days` | int32 | Min required effective trading days. **Pending aixfund field expansion — currently may return `0`.** |
+| `effective_trading_days_so_far` | int32 | Effective trading days achieved so far. **Pending aixfund field expansion — currently may return `0`.** |
+
+`equity` sub-object (from risk-server + account-server):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `initial_capital` | string | Funded initial capital (USDT) |
+| `baseline_equity` | string | Baseline equity (usually = `initial_capital`) |
+| `current_equity` | string | Current equity (live balance + unrealized PnL, by mark_price) |
+| `current_profit` | string | `current_equity - baseline_equity` (USDT, may be negative) |
+| `current_profit_pct` | string | `(current - baseline) / baseline × 100`; `""` if `baseline_equity == 0` |
+
+`risk` sub-object (from risk-server):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `max_drawdown_pct` | string | Max-cumulative-loss red line (percent); compare against `max_cumulative_loss_pct` |
+| `current_drawdown_pct` | string | **Drawdown from the historical peak** (`(peak − current) / peak × 100`). ⚠️ NOT a cumulative-loss basis; not directly comparable to `max_drawdown_pct` |
+| `max_daily_drawdown_pct` | string | Daily-drawdown red line (percent) |
+| `last_daily_drawdown_pct` | string | Previous-day drawdown rate (daily_drawdown worker, 08:00 UTC daily). Always ≤ 0. `"0"` = flat / in profit / first day |
+| `max_cumulative_loss_pct` | string | Max cumulative loss rate (`(baseline − min(trough, current)) / baseline × 100`). **Use this for the "max loss control" card**; same basis as `max_drawdown_pct`, directly comparable |
+| `min_holding_seconds` | int | Minimum holding time (seconds). Currently fixed at `60`; later read from risk-control-server config |
+
+Degraded behaviour when an upstream is unavailable:
+
+| Upstream failure | Response handling | HTTP |
+| --- | --- | --- |
+| aixfund Verify did not send `account_challenges`, or no item matches `:id` | `aixfund: null`, other sub-objects returned normally | 200 |
+| risk-server unavailable | `equity: null`, `risk: null` (only `aixfund` may have data) | 200 |
+| account-server unavailable but risk-server OK | `equity.initial_capital: ""`, remaining `equity` fields computed from risk-server | 200 |
+| **risk-server and account-server both unavailable** | whole request fails | 503 / 10501 |
+
+The agent can degrade based on missing fields (`null` / `""` / `0`) without distinguishing by HTTP code. Note `min_holding_seconds` is a rule constant, not the current position's actual holding time.
 
 ### GET /getLeverage
 

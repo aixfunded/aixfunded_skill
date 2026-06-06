@@ -80,18 +80,27 @@ Worked examples (using the current 80% split):
 - Gross profit $3,000 → trader Payout $2,400 → bonus $480 → released as $96 × 5.
 - Gross profit $10,000 → trader Payout $8,000 → bonus capped at $1,000 → released as $200 × 5.
 
-> Note for the skill: `/exchange-accounts` does not yet expose a field that
-> tells Standard and Boost apart at the $10k / $50k capital sizes (where
-> both tracks have a tier). `config.py bind` defaults to Standard at those
-> sizes. At capital points unique to one track ($5k / $15k / $25k →
-> Standard only; $20k / $30k → Boost only) `bind` picks the only valid
-> mode. To force a different mode, override with `python3 config.py bind
-> --account-id <id> --skip-lookup --mode boost-NNk --initial-balance <amount>`.
+> Note for the skill: `config.py bind` reads the mode from the challenge
+> endpoint's `program_id` (e.g. `standard_5k` / `boost_10k`), so track and tier
+> are always exact. If that endpoint is unavailable, set the mode explicitly:
+> `python3 config.py bind --account-id <id> --skip-lookup --mode <standard-NNk|boost-NNk|lite-1k> --initial-balance <amount>`.
 
 ## Leverage caps
 
 - Challenge stage (Lite / Standard / Boost): **max 10X**
 - Payout stage: **max 5X** (per aixfunded.com/challenge/rules)
+
+> ⚠️ Payout is capped at **5X** — ordering above 5X is rejected with an error.
+> (The `/exchange-accounts` `max_leverage` field may show `20`; ignore it.)
+
+## Minimum holding time
+
+- Every position must be held **>= 60 seconds** before closing
+  (`min_holding_seconds = 60`, surfaced by
+  `/exchange-accounts/:id/challenge`). Sub-minute closes are a **soft
+  violation**: the offending close is rolled back server-side, the account
+  survives. `min_holding_seconds` is a rule constant, not the current
+  position's actual held duration.
 
 ## Payout stage
 

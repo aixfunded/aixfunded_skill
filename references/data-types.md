@@ -26,6 +26,7 @@
 | trigger_price | Trigger price (for conditional orders) |
 | fee | Fee amount |
 | account_type | PAPER (simulated) / LIVE |
+| execution_type | Currently fixed at `"Trade"`; will return the real value once Maker/Taker distinction is supported. Also present on `/trades` entries. |
 | err_code, err_msg | Failure details |
 | created_at, updated_at | Unix microseconds |
 
@@ -60,7 +61,7 @@
 | liquidation_price | Liquidation price |
 | unrealized_pnl | Unrealized PnL |
 | unrealized_pnl_percent | Unrealized PnL % |
-| funding_fee | Funding fee accrual |
+| funding_fee | This position's **cumulative settled** funding fee (sum since `created_at`). **Positive = paid by the user, negative = received by the user.** `"0"` when there are no records. |
 | account_type | PAPER / LIVE |
 | imr | Initial margin requirement |
 
@@ -76,6 +77,23 @@
 | unrealized_pnl | Unrealized PnL |
 | realized_pnl | Realized PnL |
 | wallet_balance | Wallet balance |
+
+## Closed-PnL fields (returned by /pnl/closed)
+
+| Field | Notes |
+| --- | --- |
+| side | **Opening direction**: `"BUY"` = LONG / `"SELL"` = SHORT (the entry order's side). |
+| leverage | int. The leverage in effect when the position was closed (snapshot at close, after any auto step-down). A later `setLeverage` does not change it. Never returns 0. |
+| funding_fee | Same sign convention as positions: **positive = paid by the user, negative = received by the user.** |
+
+## Risk sub-object fields (returned by /exchange-accounts and /exchange-accounts/:id/challenge)
+
+| Field | Notes |
+| --- | --- |
+| max_cumulative_loss_pct | Loss from baseline, percent = `(baseline − min(trough, current)) / baseline × 100`; `"0"` while in profit. **This is the max-loss figure — compare it against `max_drawdown_pct` to check the red line.** |
+| last_daily_drawdown_pct | Previous day's drawdown, percent (daily_drawdown worker, once a day at 08:00 UTC). Always ≤ 0; `"0"` = flat / in profit / first day. **Compare against `max_daily_drawdown_pct`** (breach: `last < -max`). Daily snapshot, not an intraday value. |
+| current_drawdown_pct | Pullback from the historical peak, percent = `(peak − current) / peak × 100`. Display-only — it grows when an account gives back profit, so it is not a loss figure. **Use `max_cumulative_loss_pct`, not this, for the red line.** |
+| min_holding_seconds | int. Minimum holding time (seconds), a rule constant. Currently fixed at `60`; later read from risk-control-server config. Returned by `/exchange-accounts/:id/challenge`. |
 
 ## trigger_type values
 
