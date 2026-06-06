@@ -44,50 +44,97 @@ from _common import (
 )
 
 
-# Mode inference is now data-driven from /exchange-accounts:
-#
-#   - account_phase == "PAYOUT"          -> payout
-#   - initial_capital == 1000            -> lite
-#   - risk.max_drawdown_pct == 6         -> standard-NNk
-#   - risk.max_drawdown_pct == 5         -> boost-NNk
-#
-# Note on the 5 vs 6 split: aixfunded.com/challenge/rules lists both
-# Standard and Boost at max-loss 6% on the public page. The backend
-# `risk.max_drawdown_pct` field has nevertheless been observed to return
-# different values for the two tracks in practice, which we use as the
-# discriminator below. If that ever changes and Boost starts returning 6,
-# bind will classify Boost accounts as standard-NNk. That mis-label has
-# no impact on agent decisions today because the threshold tables are
-# identical at challenge stage (the only Boost-specific perk is the
-# post-Payout bonus, which is informational, not threshold-based).
-# Capital alone cannot tell them apart, since the two tracks share the
-# same tier sizes. (Live testnet has also shown a $30k Standard account
-# even though the marketing tier list dropped $30k, so capital is doubly
-# unreliable.)
-
-# Tier suffix table (capital -> NNk). These are the strings appended after
-# the "standard-" / "boost-" prefix. Kept broad on purpose: it covers every
-# size the backend has ever issued, so a retired-then-reissued tier still
-# resolves instead of crashing bind.
-_CAPITAL_TO_TIER_SUFFIX = {
-    1000:  "1k",
-    5000:  "5k",
-    10000: "10k",
-    15000: "15k",
-    20000: "20k",
-    25000: "25k",
-    30000: "30k",
-    50000: "50k",
-}
+# Mode inference is data-driven from the challenge endpoint's `program_id`
+# (e.g. "standard_5k" / "boost_10k" / "lite_1k" / "payout"), which encodes both
+# track and tier exactly — see _mode_from_program_id. The old approach of
+# reconstructing the tier from `initial_capital` was removed: on a traded
+# account that field can report the current balance, which would pick the wrong
+# tier. The only legacy fallback retained is PAYOUT-phase detection from
+# /exchange-accounts (the challenge endpoint can't see phase while the aixfund
+# sub-object is null pre-upgrade).
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _mode_from_program_id(program_id: str) -> str | None:
+    """Map the challenge endpoint's `program_id` to a skill mode key.
+
+    program_id already encodes both track and tier (e.g. "standard_5k",
+    "boost_10k", "lite_1k"), so this is exact — no capital-to-suffix guessing
+    and no Standard-vs-Boost inference from max_drawdown_pct. Returns None for
+    an unrecognised / empty value so the caller can fall back.
+    """
+    if not program_id:
+        return None
+    pid = program_id.strip().lower()
+    if pid in ("payout", "payout_account"):
+        return "payout"
+    # "standard_5k" / "boost_10k" / "lite_1k" -> "standard-5k" / ...
+    parts = pid.split("_")
+    if len(parts) == 2 and parts[0] in ("standard", "boost", "lite") and parts[1].endswith("k"):
+        return f"{parts[0]}-{parts[1]}"
+    return None
+
+
+def _infer_via_challenge(minimal_cfg: dict, account_id: str) -> tuple[str, int | None] | None:
+    """Preferred path: derive (mode, initial_balance) from
+    /exchange-accounts/:id/challenge.
+
+    Uses `aixfund.program_id` for the exact mode and `equity.baseline_equity`
+    (the funded baseline, which does NOT drift as the account trades — unlike
+    the current balance) for initial_balance. Returns None so the caller falls
+    back to the legacy /exchange-accounts path when the endpoint is down, or the
+    aixfund sub-object is null (pre-upgrade) and so program_id is unavailable.
+    """
+    path = f"/exchange-accounts/{account_id}/challenge"
+    try:
+        resp = http_request("GET", path, cfg=minimal_cfg)
+    except SystemExit:
+        return None  # 503 / network / not deployed -> legacy fallback
+    data = resp.get("data") if isinstance(resp, dict) else None
+    if not isinstance(data, dict):
+        return None
+
+    aixfund = data.get("aixfund") or {}
+    mode = _mode_from_program_id(aixfund.get("program_id") or "")
+    if not mode:
+        return None  # aixfund null / unknown program_id -> legacy fallback
+
+    # baseline_equity is the funded baseline (== initial_capital); fall back to
+    # the equity sub-object's initial_capital if baseline is absent.
+    equity = data.get("equity") or {}
+    try:
+        baseline = int(float(equity.get("baseline_equity") or equity.get("initial_capital") or 0))
+    except (TypeError, ValueError):
+        baseline = 0
+    return mode, (baseline or None)
+
+
 def _infer_mode_and_balance(token: str, base_url_http: str, account_id: str) -> tuple[str, int | None]:
-    """Call /exchange-accounts and derive (mode, initial_balance) for the given account."""
+    """Derive (mode, initial_balance) for the given account.
+
+    Challenge info comes from /exchange-accounts/:id/challenge first
+    (`program_id` is an exact mode, `baseline_equity` is the funded baseline
+    that doesn't drift with trading). The legacy /exchange-accounts path is the
+    fallback — it covers Payout phase (which lives in the aixfund sub-object and
+    is null pre-upgrade) and works when the challenge endpoint is unavailable.
+    """
     minimal_cfg = {"token": token, "base_url_http": base_url_http, "exchange_account_id": account_id}
+
+    via_challenge = _infer_via_challenge(minimal_cfg, account_id)
+    if via_challenge is not None:
+        return via_challenge
+
+    # Fallback: legacy /exchange-accounts. Only used when the challenge endpoint
+    # is unavailable OR its aixfund sub-object is null (pre-upgrade) so
+    # program_id is missing. We deliberately do NOT reconstruct the tier from
+    # capital here: on a traded account `initial_capital` can report the current
+    # balance rather than the funded amount, which would pick the wrong tier (or
+    # crash). The only thing this fallback derives is PAYOUT phase, which the
+    # challenge path can't see while aixfund is null. For a non-payout account
+    # we ask the user to specify the mode explicitly instead of guessing.
     resp = http_request("GET", "/exchange-accounts", cfg=minimal_cfg)
     accounts = resp.get("data", {}).get("exchange_accounts", []) or []
     if not accounts:
@@ -103,42 +150,21 @@ def _infer_mode_and_balance(token: str, base_url_http: str, account_id: str) -> 
     acc = target[0]
 
     phase = (acc.get("account_phase") or "").upper()
-    try:
-        initial_capital = int(float(acc.get("initial_capital") or 0))
-    except (TypeError, ValueError):
-        initial_capital = 0
-
     if phase == "PAYOUT":
+        try:
+            initial_capital = int(float(acc.get("initial_capital") or 0))
+        except (TypeError, ValueError):
+            initial_capital = 0
         return "payout", (initial_capital or None)
-    if initial_capital == 1000:
-        return "lite", initial_capital
 
-    # Distinguish Standard vs Boost by the server-side risk cap.
-    risk = acc.get("risk") or {}
-    try:
-        max_dd = int(float(risk.get("max_drawdown_pct") or 0))
-    except (TypeError, ValueError):
-        max_dd = 0
-
-    if max_dd == 6:
-        track = "standard"
-    elif max_dd == 5:
-        track = "boost"
-    else:
-        die(
-            f"Cannot infer challenge mode: account risk.max_drawdown_pct="
-            f"{risk.get('max_drawdown_pct')!r} is neither 6 (Standard) "
-            f"nor 5 (Boost)."
-        )
-
-    suffix = _CAPITAL_TO_TIER_SUFFIX.get(initial_capital)
-    if not suffix:
-        die(
-            f"Cannot infer challenge mode: unrecognised initial_capital="
-            f"{initial_capital}. Recognised sizes: "
-            f"{sorted(_CAPITAL_TO_TIER_SUFFIX)}"
-        )
-    return f"{track}-{suffix}", initial_capital
+    die(
+        "Could not determine challenge mode: the /exchange-accounts/:id/challenge "
+        "endpoint did not return a program_id (it may be unavailable, or aixfund "
+        "has not yet populated the aixfund sub-object). Re-run once it is "
+        "available, or set the mode explicitly:\n"
+        "  python3 config.py bind --account-id <id> --skip-lookup "
+        "--mode <standard-NNk|boost-NNk|lite-1k> --initial-balance <amount>"
+    )
 
 
 def _redact_token(token: str) -> str:

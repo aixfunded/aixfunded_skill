@@ -9,6 +9,7 @@ Subcommands:
   trades            [--symbol] [--page] [--limit]
   pnl-closed        [--symbol] [--start <unix-microsec>] [--end <unix-microsec>] [--page] [--limit]
   leverage          [--symbol]
+  challenge                              # full assessment progress (aixfund + equity + risk)
 """
 from __future__ import annotations
 
@@ -75,6 +76,16 @@ def cmd_leverage(args, cfg):
     print_json(resp.get("data", resp))
 
 
+def cmd_challenge(_args, cfg):
+    # Unlike the other endpoints, the account id is a PATH param here, not a
+    # ?exchange_account_id= query param. Returns three sub-objects:
+    # aixfund (business status, llm score, effective trading days), equity,
+    # and risk. Any may be null if its upstream is down (see api-http.md).
+    path = f"/exchange-accounts/{cfg['exchange_account_id']}/challenge"
+    resp = http_request("GET", path, cfg=cfg)
+    print_json(resp.get("data", resp))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Query endpoints")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -100,6 +111,7 @@ def main() -> None:
     sp.set_defaults(func=cmd_pnl_closed)
 
     sp = sub.add_parser("leverage"); sp.add_argument("--symbol"); sp.set_defaults(func=cmd_leverage)
+    sub.add_parser("challenge").set_defaults(func=cmd_challenge)
 
     args = p.parse_args()
     cfg = load_config()
