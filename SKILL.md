@@ -17,7 +17,7 @@ Credentials and runtime state are kept in separate files:
   are read-only with these files.
 - `<skill-root>/state.json` — per-skill runtime state: which account is
   currently bound (`active_account_id`), `mode`, `initial_balance`, and the
-  stamped `challenge_start_ts` / `challenge_start_date_utc`.
+  cached `active_exchange`.
 
 One skill install = one bound account. To operate two accounts in parallel,
 install the skill twice (each copy has its own `state.json`).
@@ -75,42 +75,27 @@ python3 skills/aixfund-trading/scripts/config.py bind --account-id <id>
 ```
 
 `bind` is used for BOTH first-time init and later account switching. Same
-command, just a different id. If the user names a new id while an older one
-is already bound, the challenge clock is cleared automatically.
+command, just a different id.
 
 What `bind` does:
 
 1. Verifies `~/.aixfund/accounts/<id>.json` exists (paste the STEP 2 snippet
    if not).
-2. Calls `GET /exchange-accounts` with the token in that file.
-3. Infers `mode` from the `/exchange-accounts` payload, in this order:
-   - `account_phase == "PAYOUT"` → `payout`.
-   - `initial_capital == 1000` → `lite`.
-   - Otherwise look at `risk.max_drawdown_pct`:
-     - `6` → Standard (`standard-NNk`)
-     - `5` → Boost (`boost-NNk`)
-   - The size suffix (`5k` / `10k` / ... / `50k`) comes from
-     `initial_capital`.
-   `risk.max_drawdown_pct` is the only field the backend exposes that
-   actually tracks which set of rules will be enforced, so the skill
-   trusts that over any marketing-side tier table.
-4. Best-effort call to `/market/metadata` to cache `active_exchange`
+2. Reads `mode` + `initial_balance` from `GET /exchange-accounts/:id/challenge`:
+   `program_id` (e.g. `standard_5k` / `boost_10k`) gives the exact track and
+   tier, and `baseline_equity` gives the funded amount. baseline_equity does
+   not drift as the account trades, so a profitable / drawn-down account still
+   resolves to the right tier. Falls back to `/exchange-accounts` if that
+   endpoint is unavailable (which also covers PAYOUT phase).
+3. Best-effort call to `/market/metadata` to cache `active_exchange`
    (skipped silently if the call fails — not a hard dependency).
-5. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`
+4. Writes `state.json` with `active_account_id` + `mode` + `initial_balance`
    + `active_exchange`.
-
-Never ask the user for a challenge start date. The challenge period starts
-automatically at the first successful order placement —
-`place_order.py` stamps `challenge_start_ts` (UTC seconds) into `state.json`
-from the server's `Date` response header. Until that happens `risk_status.py`
-reports `challenge_started: false`.
 
 Extra subcommands:
 
 - `config.py list-accounts` — list every credential file under
   `~/.aixfund/accounts/` and the currently bound id.
-- `config.py reset-challenge` — clear the stamped `challenge_start_ts` (use
-  when the platform resets the challenge).
 - `config.py migrate` — move a legacy `~/.aixfund/config.json` into the new
   layout automatically.
 

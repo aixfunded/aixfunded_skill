@@ -19,20 +19,16 @@ Credentials and runtime state live in separate files:
   Written by the STEP 2 terminal snippet (one file per account, the user can
   have many).
 
-- `<skill-root>/state.json` — per-skill runtime state (what's bound, mode,
-  challenge clock):
+- `<skill-root>/state.json` — per-skill runtime state (what's bound, mode):
   ```json
   {
     "active_account_id": "987654321",
     "mode": "standard-10k",
     "initial_balance": 10000,
-    "challenge_start_ts": 1776834885,
-    "challenge_start_date_utc": "2026-04-22"
+    "active_exchange": "binance"
   }
   ```
-  `challenge_start_ts` (UTC seconds) is stamped automatically by
-  `place_order.py` at the user's first successful order placement, using the
-  server `Date` response header. Never set it manually.
+  Written by `config.py bind`.
 
 One skill install = one bound account. To operate two accounts in parallel,
 install the skill twice.
@@ -64,7 +60,6 @@ python3 config.py bootstrap --token "af_..."
 | Show current binding | `python3 config.py show` |
 | List available accounts | `python3 config.py list-accounts` |
 | Bind / switch account | `python3 config.py bind --account-id <id>` |
-| Reset challenge clock | `python3 config.py reset-challenge` |
 | Migrate legacy config | `python3 config.py migrate` |
 | Validate token | `python3 auth_check.py` |
 | Place order | `python3 place_order.py --symbol BTC-USDT --side BUY --order-type LIMIT --size 0.1 --price 60000` |

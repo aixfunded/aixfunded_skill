@@ -3,8 +3,6 @@ against per-mode thresholds. Output schema matches spec section 5.2.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from _common import get_active_exchange, http_request, load_config, print_json
 
 
@@ -26,7 +24,7 @@ from _common import get_active_exchange, http_request, load_config, print_json
 #   - profit target 8% -> 12%, max loss 5% -> 3%.
 _STANDARD_THRESHOLDS = {
     "profit_target_pct": 10, "max_loss_pct": 6, "daily_drawdown_pct": 3,
-    "valid_trading_days_required": 7, "challenge_period_days": None,
+    "valid_trading_days_required": 7,
 }
 _BOOST_THRESHOLDS = dict(_STANDARD_THRESHOLDS)
 
@@ -36,7 +34,6 @@ THRESHOLDS_BY_MODE = {
         "max_loss_pct": 3,
         "daily_drawdown_pct": None,
         "valid_trading_days_required": None,
-        "challenge_period_days": None,
     },
     # Threshold values do not depend on capital — only on the track
     # (Standard vs Boost). All tier names a real account might carry are
@@ -67,7 +64,6 @@ THRESHOLDS_BY_MODE = {
         "profit_target_pct": None,
         "max_loss_pct": 6, "daily_drawdown_pct": 3,
         "valid_trading_days_required": 7,
-        "challenge_period_days": None,
     },
 }
 
@@ -189,31 +185,6 @@ def main() -> None:
     else:
         loss_pct = max(0, -pnl_pct)
 
-    # Challenge period is stamped by place_order.py at the first successful
-    # order placement (server Date header, UTC seconds). If no order has been
-    # placed yet, the challenge hasn't started.
-    start_ts = cfg.get("challenge_start_ts")
-    # Back-compat: migrate legacy "challenge_start_date" (YYYY-MM-DD) on the fly
-    # if the new field is absent.
-    if not start_ts and cfg.get("challenge_start_date"):
-        try:
-            legacy = datetime.strptime(cfg["challenge_start_date"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            start_ts = int(legacy.timestamp())
-        except ValueError:
-            start_ts = None
-
-    elapsed_days = remaining_days = challenge_started = None
-    start_date_utc = cfg.get("challenge_start_date_utc") or cfg.get("challenge_start_date")
-    if start_ts and th.get("challenge_period_days"):
-        challenge_started = True
-        start_dt = datetime.fromtimestamp(start_ts, tz=timezone.utc)
-        elapsed = (datetime.now(timezone.utc) - start_dt).days
-        elapsed_days = elapsed
-        remaining_days = max(0, th["challenge_period_days"] - elapsed)
-        start_date_utc = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    elif th.get("challenge_period_days"):
-        challenge_started = False
-
     # Active exchange is chosen at runtime by the backend (post 2026-05-15).
     # Pull from state.json cache; refresh from /market/metadata if absent.
     try:
@@ -302,17 +273,6 @@ def main() -> None:
             },
             "daily_drawdown": daily_dd_block,
             "valid_trading_days": valid_days_block,
-            "challenge_period_days": {
-                "limit": th.get("challenge_period_days"),
-                "elapsed": elapsed_days,
-                "remaining": remaining_days,
-                "challenge_started": challenge_started,
-                "start_date_utc": start_date_utc,
-                "note": (
-                    None if challenge_started is not False
-                    else "Challenge starts at the first successful order placement (stamped in UTC)."
-                ),
-            },
         },
         "open_positions_count": open_pos_count,
         "rule_reminders": RULE_REMINDERS,

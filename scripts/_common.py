@@ -7,14 +7,14 @@ Configuration lives in two places:
       Written by the STEP 2 terminal snippet; scripts read-only from here.
 
   <skill-root>/state.json                          -- per-skill runtime state
-      (active_account_id + mode + initial_balance + challenge_start_ts + ...)
-      Written by `config.py bind` and by place_order.py on first order.
+      (active_account_id + mode + initial_balance + active_exchange)
+      Written by `config.py bind`.
 
 This split means:
-  - Credentials never get overwritten by challenge-state changes.
+  - Credentials never get overwritten by state changes.
   - The skill directory is the "current binding"; install two skill copies
     to operate two accounts in parallel.
-  - Deleting state.json resets the challenge (not the credentials).
+  - Deleting state.json drops the binding (not the credentials).
 
 Public API:
     load_config() -> merged dict with token+URLs+mode+challenge fields
@@ -162,8 +162,7 @@ def save_config(_cfg: dict[str, Any]) -> None:
     """
     # Extract only state-managed fields to avoid leaking credentials into state
     state_keys = {
-        "active_account_id", "mode", "initial_balance",
-        "challenge_start_ts", "challenge_start_date_utc",
+        "active_account_id", "mode", "initial_balance", "active_exchange",
     }
     state = {k: v for k, v in _cfg.items() if k in state_keys}
     # Preserve existing active_account_id if caller didn't set one

@@ -5,11 +5,10 @@ Subcommands:
   list-accounts                     list available credential files
   bind --account-id <id>            bind the skill to an account:
                                       1) verify ~/.aixfund/accounts/<id>.json exists
-                                      2) call /exchange-accounts to infer mode + initial_balance
+                                      2) read mode + initial_balance from the challenge
+                                         endpoint (falls back to /exchange-accounts)
                                       3) write state.json (active_account_id, mode, ...)
                                     Also used for "rebinding" (same command, new id).
-  reset-challenge                   clear challenge_start_ts / challenge_start_date_utc
-                                    (e.g. platform reset the challenge)
   migrate                           move legacy ~/.aixfund/config.json into the new
                                     accounts/<id>.json + state.json layout
 
@@ -251,11 +250,6 @@ def cmd_bind(args) -> None:
         "mode": mode,
         "initial_balance": initial_balance,
     }
-    # Preserve the stamped challenge start only if we're NOT switching accounts.
-    if not rebinding:
-        for k in ("challenge_start_ts", "challenge_start_date_utc"):
-            if state.get(k):
-                new_state[k] = state[k]
 
     # Cache active_exchange so scripts don't need to hit /market/metadata
     # on every run. Best-effort — bind shouldn't fail if metadata is down.
@@ -276,15 +270,8 @@ def cmd_bind(args) -> None:
     print(f"{action} skill to account {account_id} (mode={mode}, initial_balance={initial_balance})",
           file=sys.stderr)
     if rebinding:
-        print(f"  (previous active: {prev_active}; challenge_start cleared)", file=sys.stderr)
+        print(f"  (previous active: {prev_active})", file=sys.stderr)
     print_json({"state": new_state, "skill_state_path": str(STATE_PATH)})
-
-
-def cmd_reset_challenge(_args) -> None:
-    state = load_state()
-    cleared = {k: state.pop(k, None) for k in ("challenge_start_ts", "challenge_start_date_utc")}
-    save_state(state)
-    print_json({"cleared": cleared, "state": state})
 
 
 def cmd_migrate(_args) -> None:
@@ -313,7 +300,7 @@ def cmd_migrate(_args) -> None:
     save_credentials(account_id, creds)
 
     state: dict[str, Any] = {"active_account_id": account_id}
-    for k in ("mode", "initial_balance", "challenge_start_ts", "challenge_start_date_utc"):
+    for k in ("mode", "initial_balance"):
         if legacy.get(k) is not None:
             state[k] = legacy[k]
     save_state(state)
@@ -404,10 +391,6 @@ def main() -> None:
     sp_bind.add_argument("--mode", help="Used only with --skip-lookup")
     sp_bind.add_argument("--initial-balance", type=int, help="Used only with --skip-lookup")
     sp_bind.set_defaults(func=cmd_bind)
-
-    sub.add_parser("reset-challenge",
-                   help="Clear challenge_start_ts (e.g. after the platform reset the challenge)"
-                   ).set_defaults(func=cmd_reset_challenge)
 
     sub.add_parser("migrate",
                    help="Move legacy ~/.aixfund/config.json into accounts/<id>.json + state.json"

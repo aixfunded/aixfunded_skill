@@ -25,16 +25,12 @@ from __future__ import annotations
 import argparse
 import time
 import uuid
-from datetime import datetime, timezone
 
 from _common import (
     die,
     http_request,
     load_config,
-    load_state,
     print_json,
-    save_state,
-    server_utc_ts_from_headers,
 )
 
 # Server contract: reasoning is required on agent-mode accounts and
@@ -114,21 +110,7 @@ def main() -> None:
     }
     if reasoning_text:
         body["reasoning"] = reasoning_text
-    resp, response_headers = http_request(
-        "POST", "/createOrder", json_body=body, cfg=cfg, return_headers=True
-    )
-
-    # Challenge period starts at the first successful order placement.
-    # Stamp once in state.json using the server's Date header (falls back to
-    # local UTC clock on parse failure).
-    state = load_state()
-    if not state.get("challenge_start_ts"):
-        ts = server_utc_ts_from_headers(response_headers)
-        state["challenge_start_ts"] = ts
-        state["challenge_start_date_utc"] = (
-            datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        )
-        save_state(state)
+    resp = http_request("POST", "/createOrder", json_body=body, cfg=cfg)
 
     print_json(resp.get("data", resp))
 
