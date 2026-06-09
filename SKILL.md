@@ -7,6 +7,13 @@ description: Use when the user wants to trade on the AiXFund prop trading platfo
 
 Fully autonomous prop-trading agent skill. Wraps the propdesk HTTP API, providing config management, trading actions, and a risk snapshot.
 
+**Version:** see the `VERSION` file at the skill root. Format is
+`YYYY-MM-DD.N` where `N` is the release sequence within that day, starting
+at `.1` (e.g. `2026-06-08.1`, `2026-06-08.2` for a second release the same
+day). Read it to know which build is installed
+(`cat skills/aixfund-trading/VERSION`). Bump it on every release: same day →
+increment `N`; new day → reset to `.1`.
+
 ## Storage layout
 
 Credentials and runtime state are kept in separate files:
