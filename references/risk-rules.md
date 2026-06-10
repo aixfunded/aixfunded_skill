@@ -14,6 +14,15 @@ The platform sorts violations into two tiers:
   immediately; Payout account is recalled immediately. No warning, no
   human waiver, no second strike.
 
+> **`min_holding_time` enforcement upgrade (2026-06-06).** Sub-minute closes
+> are no longer purely soft: server-side risk now keeps a rolling 7×24h
+> counter (`risk.short_hold_count_7d`). The **first** event in the window
+> emits `MIN_HOLDING_ALERT` (the close is still rolled back, account
+> survives). The **second** event in the same window emits
+> `MIN_HOLDING_BREACH` → `REVOKE_ACCOUNT`: open orders cancelled, positions
+> force-closed, account disabled. Treat any non-zero `short_hold_count_7d`
+> as a serious warning, not a "soft tier survives" green light.
+
 On either tier the platform can additionally claw back rewards, payouts,
 or Boost Bonuses already credited, and may blacklist the email / KYC
 identity / Risk Entity for repeat or severe abuse.
@@ -26,7 +35,7 @@ identity / Risk Entity for repeat or severe abuse.
 | 2 | Cross-account hedging / mirroring / copy-trading | Opposite or near-identical positions across accounts. |
 | 3 | Exploiting quote latency / stale prices / mispricing | Strategies that depend on speed, latency, data-feed glitches, or known bugs. |
 | 4 | High-frequency cancel/replace | Spamming orders/cancels. |
-| 5 | Holding too briefly | Position held < 1 minute (soft violation — the close is rolled back). |
+| 5 | Holding too briefly | Position held < 1 minute. First offence in any rolling 7d window = alert (close rolled back); second offence in the same window = BREACH → account revoked. |
 | 6 | Unauthorized automation / third-party account management | Bots, scripts, copy-trade tools, signal services, or letting someone else trade your account. |
 | 7 | Manual / Agent boundary bypass | A manual account must not be driven via API, and an Agent account must not be driven via the web UI. The choice is locked in at purchase. |
 | 8 | Exploiting backend bugs | Any unintended platform behavior (mispricing, stale data, calculation bug) must be reported, not exploited. |
@@ -36,7 +45,7 @@ identity / Risk Entity for repeat or severe abuse.
 
 | Threshold | Value | Source |
 | --- | --- | --- |
-| Min holding time per position | >= 1 minute (soft-violation tier) | aixfunded.com/challenge/rules |
+| Min holding time per position | >= 1 minute (1st sub-minute close in any rolling 7d → alert; 2nd → REVOKE_ACCOUNT) | aixfunded.com/challenge/rules |
 | Max orders per second per account | 5 | propdesk API doc (rate limit) |
 | Max leverage in Challenge stage | 10X | aixfunded.com/challenge/rules |
 | Max leverage in Payout stage | 5X | aixfunded.com/challenge/rules |
@@ -107,7 +116,7 @@ High-quality example (from platform docs):
 
 ## Practical guidance for the agent
 
-1. **Hold control:** wait at least 65 seconds after opening before considering a close (5-second buffer to avoid edge violations).
+1. **Hold control:** wait at least 65 seconds after opening before considering a close (5-second buffer to avoid edge violations). Check `risk.short_hold_count_7d` via `risk_status.py` / `query.py challenge`; if it is already `1` (one alert in the past 7 days), the next sub-minute close revokes the account — be extra deliberate.
 2. **Order pacing:** when batching, sleep >= 250 ms between orders to stay under the 5/s limit.
 3. **Same-direction only:** never open opposing positions on the same symbol within a single account (avoid hedge classification).
 4. **Live quotes:** rely on `/markets/orderbook` snapshots, not stale ticker data.

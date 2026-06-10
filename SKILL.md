@@ -163,7 +163,7 @@ python3 skills/aixfund-trading/scripts/query.py challenge           # merged ass
 # Market data
 python3 skills/aixfund-trading/scripts/markets.py board
 python3 skills/aixfund-trading/scripts/markets.py metadata        # also shows active_exchange
-python3 skills/aixfund-trading/scripts/markets.py kline --symbol BTC-USDT --timeframe 1m --limit 100
+python3 skills/aixfund-trading/scripts/markets.py kline --symbol BTC-USDT --interval 1m --limit 100
 # --exchange is optional; defaults to the active_exchange returned by /market/metadata
 # (currently "binance" on testnet; previously "apex"). Override with --exchange <name> only if needed.
 
@@ -243,7 +243,7 @@ between the relevant top-of-book price and mark to the user.
 
 See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 
-- **Hold time >= 1 minute** — sub-minute closes are a soft violation; the trade is rolled back, the account survives.
+- **Hold time >= 1 minute** — server enforces a rolling 7×24h counter (`risk.short_hold_count_7d`). **1st sub-minute close** in the window = alert (close rolled back, account survives). **2nd in the same window** = BREACH → `REVOKE_ACCOUNT` (all open orders cancelled, positions force-closed, account permanently disabled). Check the counter before any tight close.
 - **Max-loss and daily-drawdown are HARD violations** — one breach fails the challenge or recalls the Payout account. No warning, no waiver.
 - **Max 5 orders per second per account** (rate limit).
 - **Leverage caps**: Challenge 10X / **Payout 5X**. Payout is capped at 5X —

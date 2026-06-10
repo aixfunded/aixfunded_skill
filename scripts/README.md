@@ -79,7 +79,7 @@ python3 config.py bootstrap --token "af_..."
 | Challenge progress | `python3 query.py challenge` (merged: status + equity + risk + effective trading days) |
 | Market board | `python3 markets.py board` |
 | Metadata (active_exchange + symbols) | `python3 markets.py metadata` |
-| Kline | `python3 markets.py kline --symbol BTC-USDT --timeframe 1m --limit 100` |
+| Kline | `python3 markets.py kline --symbol BTC-USDT --interval 1m --limit 100` |
 | Orderbook | `python3 markets.py orderbook --symbol BTC-USDT` |
 | Risk snapshot | `python3 risk_status.py` |
 | Generic fallback | `python3 api.py GET /xxx [--query "a=1"]` or `POST /xxx --json '{...}'` |

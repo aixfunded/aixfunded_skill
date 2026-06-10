@@ -3,7 +3,7 @@
 Subcommands:
   board                                            full-market ticker
   search   --keyword
-  kline    [--exchange] --symbol --timeframe [--limit]
+  kline    [--exchange] --symbol --interval [--limit]
   orderbook [--exchange] --symbol
   trades   [--exchange] --symbol
   contract [--exchange] --symbol                   contract detail
@@ -44,7 +44,7 @@ def cmd_search(args, cfg):
 
 def cmd_kline(args, cfg):
     exch = _resolve_exchange(args, cfg)
-    q = {"exchange": exch, "symbol": args.symbol, "timeframe": args.timeframe}
+    q = {"exchange": exch, "symbol": args.symbol, "interval": args.interval}
     if args.limit:
         q["limit"] = args.limit
     resp = http_request("GET", "/markets/kline", query=q, cfg=cfg)
@@ -89,7 +89,8 @@ def main() -> None:
     sp.add_argument("--exchange", default=None,
                     help="Exchange name; default = active_exchange from /market/metadata.")
     sp.add_argument("--symbol", required=True)
-    sp.add_argument("--timeframe", required=True, help="1m | 5m | 1h | 1d | ...")
+    sp.add_argument("--interval", required=True,
+                    help="1m | 3m | 5m | 15m | 30m | 1h | 2h | 4h | 6h | 8h | 12h | 1d | 3d | 1w | 1M")
     sp.add_argument("--limit", type=int)
     sp.set_defaults(func=cmd_kline)
 

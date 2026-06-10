@@ -129,6 +129,10 @@ curl -X POST $BASE/cancelOrder \
   -d '{"exchange_account_id":"'$ACCT'","exchange_order_id":"1234567890","trace_id":"trace-001","symbol":"BTC-USDT"}'
 ```
 
+- `trace_id` is **required** (sent through to trading-server as `x-trace-id`).
+- `exchange_order_id` can also be a `condition_order_id` — the gateway falls back to the condition-order cancel path if the regular lookup misses.
+- Response shape: `data.order.{order_id, exchange_order_id, status}`. `exchange_order_id` is always `""` (paper venue has no separate exchange-side id); `status` is `"CANCELED"` on the condition-order fallback path.
+
 ### POST /cancelOrders (batch by symbol)
 
 ```bash
@@ -169,6 +173,22 @@ curl "$BASE/positions?exchange_account_id=$ACCT&symbol=BTC-USDT" \
 curl "$BASE/portfolio/balances?exchange_account_id=$ACCT" \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+Key response fields:
+
+| Field | Notes |
+| --- | --- |
+| `total_equity_value` | `wallet_balance + unrealized_pnl` — the live equity (includes floating PnL). Use this for the "account equity" display; same basis as risk-server's `current_equity`. |
+| `wallet_balance` | Realised portion = `initial_capital + realized_pnl − cumulative_fee + cumulative_funding`. |
+| `available_balance` | `wallet_balance − initial_margin − frozen_for_orders`; the headroom for new orders. |
+| `initial_margin` | Margin already locked by open positions. |
+| `maintenance_margin` | Tier-based maintenance margin sum; breaching this triggers liquidation. |
+| `frozen_for_orders` | Margin pre-frozen by OPEN LIMIT orders (reduce-only orders don't freeze). Released on cancel / reject / fill. |
+| `unrealized_pnl` | Floating PnL by `mark_price`. |
+| `realized_pnl` | **Gross** realised PnL — does NOT subtract fees / funding. |
+| `realized_pnl_net` | **Net** realised PnL = `realized_pnl − cumulative_fee + cumulative_funding`. Use this for "realised PnL" cards. |
+| `cumulative_fee` | Lifetime fees paid (open + close). |
+| `cumulative_funding` | Lifetime funding settled. **Positive = paid by user, negative = received** (same sign convention as `/positions.funding_fee` and `/pnl/closed.funding_fee`). |
 
 ### GET /openOrders
 
@@ -249,6 +269,7 @@ Each account carries a `risk` sub-object with the assessment / risk-control data
 | `max_cumulative_loss_pct` | **Max cumulative loss rate** (percent) = `(baseline − min(trough, current)) / baseline × 100`. **Same basis as `max_drawdown_pct` / `alert_drawdown_pct` — directly comparable.** `"0"` while the account is in profit. **The "max loss control" card MUST use this field.** |
 | `current_drawdown_pct` | **Drawdown from the historical peak** (percent) = `(peak − current) / peak × 100`. ⚠️ This is the pullback relative to `peak_equity`, **NOT** cumulative loss: an account that profited first then pulled back inflates this value even without a real loss. **NOT directly comparable to the `max_drawdown_pct` red line.** |
 | `last_daily_drawdown_pct` | **Previous-day drawdown rate** (percent), the value the daily_drawdown worker persists once per day at 08:00 UTC. Always ≤ 0. **Same basis as `max_daily_drawdown_pct` — directly comparable** (breach: `last < -max`). `"0"` = flat / in profit / first day or worker not yet run. ⚠️ 24h discrete sample, refreshed only at 08:00 UTC, NOT an intraday real-time value. |
+| `short_hold_count_7d` | int. Rolling 7×24h count of `min_holding_time` rule events (alerts + breaches). `0` = clean. **First event = 1 (alert), second+ = 2+ (BREACH → account REVOKED).** Live since 2026-06-06; before this date the rule existed but was advisory only. |
 
 > Render the "max loss control" card with `max_cumulative_loss_pct`, NOT `current_drawdown_pct`.
 
@@ -300,7 +321,8 @@ Response (`200 OK`):
       "max_daily_drawdown_pct": "3",
       "last_daily_drawdown_pct": "0",
       "max_cumulative_loss_pct": "0",
-      "min_holding_seconds": 60
+      "min_holding_seconds": 60,
+      "short_hold_count_7d": 0
     }
   }
 }
@@ -320,9 +342,9 @@ Response (`200 OK`):
 | `agent_llm_score_at_ms` | int64 | Score time, Unix ms; `0` if absent |
 | `assessment_start_at_ms` | int64 | Challenge assessment start (usually first effective fill), Unix ms; `0` if absent |
 | `last_effective_trade_at_ms` | int64 | Latest effective fill time, Unix ms; `0` if absent |
-| `profit_target_pct` | string | Program profit-target rate (percent string, e.g. `"12"`). **Pending aixfund field expansion — currently may return `""`.** |
-| `min_trading_days` | int32 | Min required effective trading days. **Pending aixfund field expansion — currently may return `0`.** |
-| `effective_trading_days_so_far` | int32 | Effective trading days achieved so far. **Pending aixfund field expansion — currently may return `0`.** |
+| `profit_target_pct` | string | Program profit-target rate (percent string, e.g. `"10"`). Live since 2026-06-06 (aixfund Verify upgrade); upstream source field is `target_profit_pct`. |
+| `min_trading_days` | int32 | Min required effective trading days; `0` means the program has no min-day rule. Upstream source field is `target_min_trading_days`. |
+| `effective_trading_days_so_far` | int32 | Effective trading days achieved so far. Upstream source field is `valid_trading_days`. ⚠️ aixfund only ships a frozen snapshot when the account fails / is eliminated — for **active** accounts the value may stay at `0` even though server-side counting is happening. Do NOT interpret `0` on an active account as "zero days so far". |
 
 `equity` sub-object (from risk-server + account-server):
 
@@ -344,6 +366,7 @@ Response (`200 OK`):
 | `last_daily_drawdown_pct` | string | Previous-day drawdown rate (daily_drawdown worker, 08:00 UTC daily). Always ≤ 0. `"0"` = flat / in profit / first day |
 | `max_cumulative_loss_pct` | string | Max cumulative loss rate (`(baseline − min(trough, current)) / baseline × 100`). **Use this for the "max loss control" card**; same basis as `max_drawdown_pct`, directly comparable |
 | `min_holding_seconds` | int | Minimum holding time (seconds). Currently fixed at `60`; later read from risk-control-server config |
+| `short_hold_count_7d` | int | Rolling 7×24h count of `min_holding_time` rule events. First event = alert; second event = BREACH → account REVOKED. Live since 2026-06-06. |
 
 Degraded behaviour when an upstream is unavailable:
 
@@ -397,8 +420,14 @@ for subsequent calls.
 ```bash
 # Substitute $EXCH with data.active_exchange from /market/metadata.
 EXCH=$(curl -s "$BASE/market/metadata" | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["active_exchange"])')
-curl "$BASE/markets/kline?exchange=$EXCH&symbol=BTC-USDT&timeframe=1m&limit=100"
+curl "$BASE/markets/kline?exchange=$EXCH&symbol=BTC-USDT&interval=1m&limit=100"
 ```
+
+> ⚠️ The query parameter is **`interval`**, NOT `timeframe`. The server
+> silently ignores unknown params and falls back to `1m`, so passing
+> `timeframe=5m` returns a stream of 1-minute candles with no error. The
+> public WebSocket `ohlcv` topic uses `timeframe` — don't conflate the two.
+> Valid values: `1m / 3m / 5m / 15m / 30m / 1h / 2h / 4h / 6h / 8h / 12h / 1d / 3d / 1w / 1M`.
 
 ### GET /markets/orderbook
 

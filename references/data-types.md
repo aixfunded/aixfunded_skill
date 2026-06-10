@@ -70,13 +70,17 @@
 | Field | Notes |
 | --- | --- |
 | exchange_account_id | Account ID |
-| total_equity_value | Total equity (incl. unrealized PnL) |
-| available_balance | Available balance |
-| initial_margin | Initial margin used |
-| maintenance_margin | Maintenance margin |
-| unrealized_pnl | Unrealized PnL |
-| realized_pnl | Realized PnL |
-| wallet_balance | Wallet balance |
+| total_equity_value | Total equity (incl. unrealized PnL) — same basis as risk-server `current_equity`. |
+| available_balance | `wallet_balance − initial_margin − frozen_for_orders`. |
+| initial_margin | Initial margin used by open positions. |
+| maintenance_margin | Maintenance margin (tier-based). |
+| frozen_for_orders | Margin pre-frozen by OPEN LIMIT orders (reduce-only orders don't freeze). Released on cancel / reject / fill. |
+| unrealized_pnl | Unrealized PnL (by `mark_price`). |
+| realized_pnl | **Gross** realised PnL — does NOT subtract fees / funding. |
+| realized_pnl_net | **Net** realised PnL = `realized_pnl − cumulative_fee + cumulative_funding`. Use this for "realised PnL" displays. |
+| cumulative_fee | Lifetime fees paid (open + close). |
+| cumulative_funding | Lifetime funding settled. **Positive = paid by user, negative = received** (same sign convention as `/positions.funding_fee`). |
+| wallet_balance | `initial_capital + realized_pnl − cumulative_fee + cumulative_funding`. |
 
 ## Closed-PnL fields (returned by /pnl/closed)
 
@@ -94,6 +98,7 @@
 | last_daily_drawdown_pct | Previous day's drawdown, percent (daily_drawdown worker, once a day at 08:00 UTC). Always ≤ 0; `"0"` = flat / in profit / first day. **Compare against `max_daily_drawdown_pct`** (breach: `last < -max`). Daily snapshot, not an intraday value. |
 | current_drawdown_pct | Pullback from the historical peak, percent = `(peak − current) / peak × 100`. Display-only — it grows when an account gives back profit, so it is not a loss figure. **Use `max_cumulative_loss_pct`, not this, for the red line.** |
 | min_holding_seconds | int. Minimum holding time (seconds), a rule constant. Currently fixed at `60`; later read from risk-control-server config. Returned by `/exchange-accounts/:id/challenge`. |
+| short_hold_count_7d | int. Rolling 7×24h count of `min_holding_time` rule events. `0` = clean; `1` = alert recorded (one strike); `2+` = BREACH → account REVOKED. Live since 2026-06-06. |
 
 ## trigger_type values
 

@@ -97,10 +97,19 @@ Worked examples (using the current 80% split):
 
 - Every position must be held **>= 60 seconds** before closing
   (`min_holding_seconds = 60`, surfaced by
-  `/exchange-accounts/:id/challenge`). Sub-minute closes are a **soft
-  violation**: the offending close is rolled back server-side, the account
-  survives. `min_holding_seconds` is a rule constant, not the current
-  position's actual held duration.
+  `/exchange-accounts/:id/challenge`). `min_holding_seconds` is a rule
+  constant, not the current position's actual held duration.
+- **Enforcement (live since 2026-06-06)**: server-side risk maintains a
+  rolling 7×24h counter (`risk.short_hold_count_7d`).
+  - **1st sub-minute close in the window** → `MIN_HOLDING_ALERT`. The
+    offending close is rolled back, position is restored, account
+    survives. Counter goes to 1.
+  - **2nd sub-minute close in the same window** → `MIN_HOLDING_BREACH` →
+    `REVOKE_ACCOUNT`. Open orders cancelled, positions force-closed,
+    account permanently disabled. No human waiver.
+- The counter decays naturally as old events fall out of the 7-day window;
+  there is no manual reset. Treat any non-zero `short_hold_count_7d` as
+  one strike away from revocation.
 
 ## Payout stage
 
