@@ -246,12 +246,15 @@ See `references/risk-rules.md` and `references/challenge-rules.md`. Summary:
 - **Hold time >= 1 minute** — server enforces a rolling 7×24h counter (`risk.short_hold_count_7d`). **1st sub-minute close** in the window = alert (close rolled back, account survives). **2nd in the same window** = BREACH → `REVOKE_ACCOUNT` (all open orders cancelled, positions force-closed, account permanently disabled). Check the counter before any tight close.
 - **Max-loss and daily-drawdown are HARD violations** — one breach fails the challenge or recalls the Payout account. No warning, no waiver.
 - **Max 5 orders per second per account** (rate limit).
-- **Leverage caps**: Challenge 10X / **Payout 5X**. Payout is capped at 5X —
-  ordering above 5X is rejected with an error.
+- **Leverage caps**: Challenge **max 10X** / **Payout max 5X**. Caps are an
+  upper bound and vary by asset (challenge 5X–10X, Payout 2X–5X) —
+  ordering above the asset's cap is rejected; trust the value returned at order time.
 - **Forbidden**: multi-account trading, hedging across accounts, quote-latency / mispricing exploits, high-frequency cancel/replace, third-party-managed accounts, manual/Agent boundary bypass.
+- **Allowed**: news trading and holding over the weekend are both permitted (still subject to all risk and forbidden-behavior rules).
 - **Lite mode thresholds**: profit target 12%, max loss 3%, no daily drawdown, no time limit, no min trading days. Tier: $1k only. Reward on pass: $50.
-- **Standard / Boost thresholds (challenge stage, same numbers)**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, no time limit.
-  - Tiers: $5k / $10k / $15k / $25k / $50k. Agent mode supported on $5k / $10k / $15k; $25k / $50k are manual-only.
+- **Standard thresholds (challenge stage)**: profit target 10%, max loss 6%, daily drawdown 3%, >= 7 valid trading days, no time limit.
+- **Boost thresholds (challenge stage)**: profit target **12%**, max loss **5%** (stricter than Standard), daily drawdown 3%, >= 7 valid trading days, no time limit. On the Boost **Payout** account max-loss loosens back to 6%.
+  - Tiers (both tracks): $5k / $10k / $15k / $25k / $50k. Agent mode supported on $5k / $10k / $15k; $25k / $50k are manual-only.
   - **Boost Bonus**: paid only on the Boost track, on the first successful Payout — bonus = first Payout amount × 20%, capped at $1,000, released as 5 equal tranches across the next 5 Payouts.
 - **Payout stage**: 80% to trader; min withdrawal 100 USDT (first payout included); challenge fee is **not** refunded; payout request windows 5/15/25 (first request exempt); balance withdrawal windows 8/18/28; awards can be clawed back on later-discovered violations.
 - **Inactivity suspension (30 days)**: an account is suspended after 30 calendar days without an executed fill. Logins, market-data reads, agent connections, placing/cancelling orders that never fill, and auto-liquidations do NOT count as activity. Only a real trade resets the clock.

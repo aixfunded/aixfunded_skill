@@ -41,6 +41,10 @@ identity / Risk Entity for repeat or severe abuse.
 | 8 | Exploiting backend bugs | Any unintended platform behavior (mispricing, stale data, calculation bug) must be reported, not exploited. |
 | 9 | Identity / quota evasion | Duplicate accounts, synthetic identity, VPN/VPS to fake jurisdiction, sharing API keys across accounts. |
 
+> **Explicitly allowed:** news trading and holding positions over the weekend
+> are both permitted. They still have to obey every risk and forbidden-behavior
+> rule above — "allowed" is not a risk-rule exemption.
+
 ## Critical thresholds (agent must internalize)
 
 | Threshold | Value | Source |
@@ -52,7 +56,9 @@ identity / Risk Entity for repeat or severe abuse.
 
 > ⚠️ **Payout is capped at 5X.** Ordering above 5X on a Payout account is
 > rejected with an error. (The `/exchange-accounts` `max_leverage` field may
-> show `20` — ignore it; the cap is 5X.)
+> show `20` — ignore it; the cap is 5X.) The cap is also
+> **per-asset**: challenge sits in 5X–10X, Payout in 2X–5X, so for some
+> assets the real ceiling is below these maxima — trust the order-time value.
 | Inactivity suspension | 30 calendar days without a real fill | aixfunded.com/challenge/rules |
 
 ## Inactivity rule (suspension after 30 days)
@@ -122,9 +128,10 @@ High-quality example (from platform docs):
 4. **Live quotes:** rely on `/markets/orderbook` snapshots, not stale ticker data.
 5. **Risk-first:** before opening new exposure, run `risk_status.py`.
    Stop opening new positions when max-loss usage is within 1 percentage
-   point of the limit (i.e. >= 5% of equity drawn on a 6% cap; >= 2% on a
-   3% Lite cap). Max-loss and daily-drawdown are hard violations — one
-   breach ends the account.
+   point of the limit (>= 5% drawn on a 6% cap — Standard/Boost Payout and
+   Standard challenge; >= 4% on a 5% cap — **Boost challenge stage**;
+   >= 2% on a 3% Lite cap). Max-loss and daily-drawdown are hard violations
+   — one breach ends the account.
 6. **Reason every trade:** on every `place_order.py` / `close_position.py`
    call, pass a fresh order-specific `--reasoning` string (see AI
    reasoning score section above).

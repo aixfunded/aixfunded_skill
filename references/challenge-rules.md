@@ -2,7 +2,7 @@
 
 > Source: https://aixfunded.com/challenge/rules. Where this document and
 > the PRD differ, follow this document. Last refreshed against the live
-> rules page on 2026-06-02.
+> rules page on 2026-06-12 (Boost challenge stage restored to 12% / 5%).
 
 ## Lite mode
 
@@ -42,27 +42,34 @@ Evaluation details:
 
 ## Boost mode
 
-Per aixfunded.com/challenge/rules, Boost shares the **same challenge-stage
-threshold table as Standard** (profit 10%, max-loss 6%, daily-drawdown 3%,
-valid days >= 7, no time limit). Its differentiator is the Boost Bonus
-paid on top of the first successful Payout (see "Boost Bonus" below);
-Boost is more expensive at purchase to fund that bonus.
+Per the live rules page (refreshed 2026-06-12), Boost's challenge stage is
+**stricter than Standard**: profit target **12%** and max cumulative loss
+**5%** (daily-drawdown 3%, valid days >= 7, no time limit). Once on the
+Payout account the max-loss loosens back to **6%** — same as Standard's
+Payout. Its other differentiator is the Boost Bonus paid on top of the
+first successful Payout (see "Boost Bonus" below); Boost is more expensive
+at purchase to fund that bonus.
 
 Tier sizes match Standard ($5k / $10k / $15k / $25k / $50k). Agent mode
 is supported only on the smaller tiers; $25k and $50k are manual-only.
 
 | Account size | Profit target | Max loss | Daily drawdown | Min trading days | Time limit | Profit split | Agent mode |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| $5,000  | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
-| $10,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
-| $15,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
-| $25,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
-| $50,000 | 10% | 6% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
+| $5,000  | 12% | 5% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $10,000 | 12% | 5% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $15,000 | 12% | 5% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | yes |
+| $25,000 | 12% | 5% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
+| $50,000 | 12% | 5% | 3% | >= 7 days | unlimited | 80% / 20% (+ Bonus) | no  |
 
-> Source-history note: an earlier internal Boost MRD listed stricter 12%
-> profit / 5% max-loss targets and a 10-day deadline. The public rules
-> page now lists Boost with the same numbers as Standard — that's the
-> authoritative version.
+> These are **challenge-stage** numbers (profit 12% / max-loss 5%). On the
+> Boost **Payout** account the max cumulative loss loosens to **6%**
+> (daily-drawdown stays 3%), matching Standard's Payout thresholds. So the
+> tight 5% loss cap applies only while passing the challenge.
+
+> Note: Boost's challenge-stage thresholds have changed over time, so older
+> references may show 10% / 6%. The **current authoritative values are 12%
+> profit / 5% max-loss** for the challenge stage (Payout max-loss 6%); there
+> is no time limit. Don't be misled by stale 10% / 6% numbers.
 
 ### Boost Bonus (post-Payout reward)
 
@@ -90,7 +97,14 @@ Worked examples (using the current 80% split):
 - Challenge stage (Lite / Standard / Boost): **max 10X**
 - Payout stage: **max 5X** (per aixfunded.com/challenge/rules)
 
-> ⚠️ Payout is capped at **5X** — ordering above 5X is rejected with an error.
+> **Caps are per-asset.** The rules page states usable leverage is a *range*
+> that depends on account type AND asset, decided at order time: Lite and
+> Standard/Boost challenge fall in **5X–10X**, Payout in **2X–5X**. The
+> numbers above are the *upper* bound — for some assets the real cap is
+> lower (a Payout asset may cap at 2X, not 5X). Treat the value returned at
+> order time as authoritative.
+
+> ⚠️ Payout never exceeds **5X** — ordering above 5X is rejected with an error.
 > (The `/exchange-accounts` `max_leverage` field may show `20`; ignore it.)
 
 ## Minimum holding time
